@@ -63,7 +63,7 @@ public class SimpleDatasourceConfiguration {
             @Qualifier("integradoDatasource") DataSource dataSource
     ) {
         return builder.dataSource(dataSource)
-                .packages("br.com.interagese.stage")
+                .packages("br.com.interagese.firebird")
                 .persistenceUnit("integradoPU")
                 .properties(firebirdProperties())
                 .build();
