@@ -47,6 +47,7 @@
             <artifactId>jaxb-api</artifactId> 
             <version>2.1</version> 
         </dependency>
+       
         <dependency>
             <groupId>org.firebirdsql.jdbc</groupId>
             <artifactId>jaybird-jdk18</artifactId>
