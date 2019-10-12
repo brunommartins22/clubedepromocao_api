@@ -5,7 +5,7 @@
  */
 package br.com.interagese.promocao.controllers;
 
-import br.com.interagese.firebird.models.ScanntechConfig;
+import br.com.firebird.models.ScanntechConfig;
 import br.com.interagese.padrao.rest.util.IsServiceDefault;
 import br.com.interagese.padrao.rest.util.PadraoController;
 import br.com.interagese.promocao.service.ScanntechConfigService;

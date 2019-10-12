@@ -1,6 +1,6 @@
 package br.com.interagese.promocao.service;
 
-import br.com.interagese.firebird.models.Tabpromocao;
+import br.com.firebird.models.Tabpromocao;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Date;
 import java.util.List;
