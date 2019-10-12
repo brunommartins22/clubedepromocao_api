@@ -7,7 +7,6 @@ package br.com.interagese.promocao.service;
 
 import br.com.interagese.firebird.models.ScanntechConfig;
 import br.com.interagese.padrao.rest.util.PadraoService;
-import br.com.interagese.promocao.controllers.*;
 import org.springframework.stereotype.Service;
 
 /**

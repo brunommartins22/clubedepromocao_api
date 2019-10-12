@@ -18,11 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
  * @author Bruno Martins
  */
 @RestController
-@RequestMapping("api/configuracoes")
+@RequestMapping(path="/api/configuracoes")
 public class ScanntechConfigController extends PadraoController<ScanntechConfig> {
 
     @IsServiceDefault
     @Autowired
-    private ScanntechConfigService service;
+    public ScanntechConfigService service;
 
 }

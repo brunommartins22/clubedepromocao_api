@@ -28,10 +28,6 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
             <scope>runtime</scope>
@@ -52,11 +48,6 @@
             <version>2.1</version> 
         </dependency>
         <dependency>
-            <groupId>br.com.interagese.interagese_rest</groupId>
-            <artifactId>interagese_rest</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
             <groupId>org.firebirdsql.jdbc</groupId>
             <artifactId>jaybird-jdk18</artifactId>
             <version>2.2.9</version>
@@ -65,6 +56,11 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>clubedepromocao_model</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>br.com.interagese.interagese_rest</groupId>
+            <artifactId>interagese_rest</artifactId>
+            <version>1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
