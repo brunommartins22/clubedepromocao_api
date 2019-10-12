@@ -16,7 +16,7 @@ public class JobService {
 
     private boolean executando = false;
 
-    @Scheduled(initialDelay = 2000)
+    @Scheduled(initialDelay = 2000, fixedDelay = 2000)
     public void executarTransmissao() {
         if (!executando) {
             executando = true;

@@ -1,5 +1,5 @@
 
-package br.com.interagese.promocao;
+package br.com.interagese;
 
 import br.com.interagese.padrao.rest.util.configuration.LiquibaseConfiguration;
 import br.com.interagese.padrao.rest.util.configuration.MultiDatasourceConfiguration;
