@@ -5,8 +5,10 @@
  */
 package br.com.interagese.promocao.service;
 
-import br.com.firebird.models.ScanntechConfig;
 import br.com.interagese.padrao.rest.util.PadraoService;
+import br.com.interagese.postgres.models.Configuracao;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,6 +16,10 @@ import org.springframework.stereotype.Service;
  * @author Bruno Martins
  */
 @Service
-public class ScanntechConfigService extends PadraoService<ScanntechConfig>{
+public class ConfiguracaoService extends PadraoService<Configuracao>{
+    
+    @PersistenceContext(unitName = "integradoPU")
+    private EntityManager emFirebirb;
+    
     
 }
