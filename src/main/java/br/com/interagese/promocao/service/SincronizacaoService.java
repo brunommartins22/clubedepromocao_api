@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 @Service
-public class JobService {
+public class SincronizacaoService {
 
     private boolean executando = false;
 
@@ -28,7 +28,7 @@ public class JobService {
     private void handlePromocoesBaixadas() throws Exception {
 
         RestTemplate restClient = new RestTemplate();
-        ResponseEntity<JsonNode> response = restClient.exchange("teste", HttpMethod.GET, HttpEntity.EMPTY, JsonNode.class);
+        ResponseEntity<JsonNode> response = restClient.exchange("http://br.homo.apipdv.scanntech.com", HttpMethod.GET, HttpEntity.EMPTY, JsonNode.class);
 
         int promocoesInseridas = 0;
 
