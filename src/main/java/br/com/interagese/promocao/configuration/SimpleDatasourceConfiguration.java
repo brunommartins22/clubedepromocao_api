@@ -93,7 +93,7 @@ public class SimpleDatasourceConfiguration {
 
     @Bean("integradoTransaction")
     public PlatformTransactionManager stageTransactionManager(
-            EntityManagerFactory factory
+            @Qualifier("integradoEntityManager") EntityManagerFactory factory
     ) {
         JpaTransactionManager transactionManager = new JpaTransactionManager();
         transactionManager.setEntityManagerFactory(factory);
