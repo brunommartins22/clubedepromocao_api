@@ -3,15 +3,22 @@ package br.com.interagese.promocao.util;
 import br.com.firebird.models.Notasai;
 import br.com.interagese.postgres.models.Configuracao;
 import br.com.interagese.postgres.models.Url;
-import br.com.interagese.promocao.EstadoPromocao;
+import br.com.interagese.promocao.enuns.EstadoPromocao;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.SocketTimeoutException;
+import java.text.SimpleDateFormat;
 import java.util.Base64;
+import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -55,7 +62,7 @@ public class ScanntechRestClient {
 
     }
 
-    public ResponseEntity<String> enviarVendas(Configuracao configuracao, Notasai venda, Integer idLocal, String nrcaixa) {
+    public ResponseEntity<String> enviarVendas(Configuracao configuracao, Notasai venda, Integer idLocal, Integer nrcaixa) {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
@@ -71,12 +78,23 @@ public class ScanntechRestClient {
 
                 RestTemplate restTemplate = new RestTemplate();
                 MultiValueMap<String, String> headers = createHeaders(usuario, senha);
-
+                
+                ObjectMapper mapper = new ObjectMapper();
+                try {
+                    String str = mapper.writeValueAsString(venda);
+                    System.out.println("Txt " + str);
+                } catch (JsonProcessingException ex) {
+                    Logger.getLogger(ScanntechRestClient.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
                 ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(venda, headers), String.class);
 
                 return response;
 
             } catch (RestClientException e) {
+                if(e instanceof HttpClientErrorException){
+                    System.out.println("Causa: " + ((HttpClientErrorException) e).getResponseBodyAsString());
+                }
                 if (!(e.getCause() instanceof SocketTimeoutException)) {
                     throw e;
                 }
@@ -98,7 +116,12 @@ public class ScanntechRestClient {
         String authorization = usuario + ":" + senha;
         authorization = Base64.getEncoder().encodeToString(authorization.getBytes());
         headers.add("Authorization", "Basic " + authorization);
+        headers.add("Content-Type", "application/json");
         return headers;
+    }
+    
+    public static void main(String[] args) {
+        System.out.println(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(new Date()));
     }
 
 }

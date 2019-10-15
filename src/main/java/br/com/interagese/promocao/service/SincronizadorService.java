@@ -11,6 +11,9 @@ public class SincronizadorService {
 
     @Autowired
     private TabpromocaoService tabpromocaoService;
+    
+    @Autowired
+    private NotasaiService notasaiService;
 
     public SincronizadorService() {
 
@@ -21,7 +24,7 @@ public class SincronizadorService {
         if (!executando) {
             executando = true;
             try {
-
+               // notasaiService.enviarVendas();
                 // tabpromocaoService.baixarPromocoes();
                 //System.out.println("Promoção baixadas");
             } catch (Exception ex) {

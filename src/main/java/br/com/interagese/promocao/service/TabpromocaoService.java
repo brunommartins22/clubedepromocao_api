@@ -1,9 +1,9 @@
 package br.com.interagese.promocao.service;
 
-import br.com.interagese.promocao.Tabpromocao;
+import br.com.firebird.models.Tabpromocao;
 import br.com.firebird.models.Tabpromoitem;
 import br.com.interagese.padrao.rest.util.PadraoService;
-import br.com.interagese.promocao.EstadoPromocao;
+import br.com.interagese.promocao.enuns.EstadoPromocao;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
