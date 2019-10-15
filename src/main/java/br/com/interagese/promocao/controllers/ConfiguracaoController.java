@@ -5,10 +5,10 @@
  */
 package br.com.interagese.promocao.controllers;
 
-import br.com.firebird.models.ScanntechConfig;
 import br.com.interagese.padrao.rest.util.IsServiceDefault;
 import br.com.interagese.padrao.rest.util.PadraoController;
-import br.com.interagese.promocao.service.ScanntechConfigService;
+import br.com.interagese.promocao.service.ConfiguracaoService;
+import br.com.interagese.postgres.models.Configuracao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,11 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
  * @author Bruno Martins
  */
 @RestController
-@RequestMapping(path="/api/configuracoes")
-public class ScanntechConfigController extends PadraoController<ScanntechConfig> {
+@RequestMapping(path = "/api/configuracoes")
+public class ConfiguracaoController extends PadraoController<Configuracao> {
 
     @IsServiceDefault
     @Autowired
-    public ScanntechConfigService service;
+    public ConfiguracaoService service;
 
 }
