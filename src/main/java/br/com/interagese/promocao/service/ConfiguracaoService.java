@@ -18,20 +18,12 @@ import org.springframework.stereotype.Service;
  * @author Bruno Martins
  */
 @Service
-public class ConfiguracaoService extends PadraoService<Configuracao>{
-    
+public class ConfiguracaoService extends PadraoService<Configuracao> {
+
     @Autowired
     private FilialScanntechService service;
-    
+
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebirb;
-    
-    
-//    public void processConfimationConfig(List<Configuracao> result) throws Exception{
-//        for (Configuracao configuracao : result) {
-//            update(configuracao);
-//        }
-//    }
-    
-    
+
 }

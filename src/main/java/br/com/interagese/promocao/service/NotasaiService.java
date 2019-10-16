@@ -2,13 +2,11 @@ package br.com.interagese.promocao.service;
 
 import br.com.firebird.models.Notasai;
 import br.com.firebird.models.Notasaiitens;
-import br.com.interagese.postgres.models.Configuracao;
+import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FilialScanntech;
-import br.com.interagese.postgres.models.Url;
 import br.com.interagese.promocao.enuns.StatusEnvio;
 import br.com.interagese.promocao.util.ScanntechRestClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -27,9 +25,10 @@ public class NotasaiService {
 
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebird;
-
     @Autowired
     private SincronizacaoService scanntechsincService;
+    @Autowired
+    private ConfiguracaoService configuracaoService;
 
     private final ObjectMapper mapper;
     private final ScanntechRestClient restClient;
@@ -42,86 +41,72 @@ public class NotasaiService {
     @Transactional("integradoTransaction")
     public void enviarVendas(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
 
-        //Configuracao de teste
-        Configuracao configuracao = new Configuracao();
-        configuracao.setCodigoEmpresa("31672");
+        for (ConfiguracaoItem configuracao : configuracaoService.findById(1).getConfiguracaoItem()) {
+            for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
-        Url url = new Url();
-        url.setValor("http://br.homo.apipdv.scanntech.com");
-        configuracao.setListaUrl(Arrays.asList(url));
+                int codfil = filialScanntech1.getCodigoFilial().intValue();
+                int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
-        FilialScanntech f = new FilialScanntech();
-        f.setCodigoFilial(1L);
-        f.setCodigoScanntech(1L);
-        configuracao.setListaFilial(Arrays.asList(f));
-
-        configuracao.setUsuario("integrador_test@interagese.com.br");
-        configuracao.setSenha("integrador");
-
-        for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
-
-            int codfil = filialScanntech1.getCodigoFilial().intValue();
-            int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
-
-            int vendas = getQuantidadeDeVendasParaEnvio(
-                    dataDaUltimaSincronizacao,
-                    dataDaSincronizacaoAtual,
-                    codfil
-            );
-
-            int lote = 100;
-            int loops = vendas / lote;
-            if ((vendas % lote) != 0) {
-                loops++;
-            }
-
-            for (int i = 0; i < loops; i++) {
-                List<Notasai> vendasParaEnvio = getVendasParaEnvio(
+                int vendas = getQuantidadeDeVendasParaEnvio(
                         dataDaUltimaSincronizacao,
                         dataDaSincronizacaoAtual,
-                        codfil,
-                        i == 0 ? i : i * lote,
-                        lote
+                        codfil
                 );
 
-                for (Notasai venda : vendasParaEnvio) {
+                int lote = 100;
+                int loops = vendas / lote;
+                if ((vendas % lote) != 0) {
+                    loops++;
+                }
 
-                    for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
-
-                        venda.setDescontoTotal(notasaiitens.getDesconto() + venda.getDescontoTotal());
-                        venda.setAcrescimentoTotal(notasaiitens.getAcrescimo() + venda.getAcrescimentoTotal());
-
-                    }
-
-                    ResponseEntity<String> response = restClient.enviarVenda(
-                            configuracao,
-                            venda,
-                            codscanntech,
-                            venda.getNrcaixa()
+                for (int i = 0; i < loops; i++) {
+                    List<Notasai> vendasParaEnvio = getVendasParaEnvio(
+                            dataDaUltimaSincronizacao,
+                            dataDaSincronizacaoAtual,
+                            codfil,
+                            i == 0 ? i : i * lote,
+                            lote
                     );
 
-                    if (response.getStatusCode() == HttpStatus.OK
-                            || response.getStatusCode() == HttpStatus.ALREADY_REPORTED) {
+                    for (Notasai venda : vendasParaEnvio) {
 
-                        venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
+                        for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
 
-                    } else if (response.getStatusCode() == HttpStatus.REQUEST_TIMEOUT
-                            || (response.getStatusCodeValue() >= 500 && response.getStatusCodeValue() <= 599)) {
+                            venda.setDescontoTotal(notasaiitens.getDesconto() + venda.getDescontoTotal());
+                            venda.setAcrescimentoTotal(notasaiitens.getAcrescimo() + venda.getAcrescimentoTotal());
 
-                        venda.setObsscanntech(response.getBody());
-                        venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
+                        }
 
-                    } else {
-                        venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
+                        ResponseEntity<String> response = restClient.enviarVenda(
+                                configuracao,
+                                venda,
+                                codscanntech,
+                                venda.getNrcaixa()
+                        );
+
+                        if (response.getStatusCode() == HttpStatus.OK
+                                || response.getStatusCode() == HttpStatus.ALREADY_REPORTED) {
+
+                            venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
+
+                        } else if (response.getStatusCode() == HttpStatus.REQUEST_TIMEOUT
+                                || (response.getStatusCodeValue() >= 500 && response.getStatusCodeValue() <= 599)) {
+
+                            venda.setObsscanntech(response.getBody());
+                            venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
+
+                        } else {
+                            venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
+                        }
+
+                        update(venda);
+
                     }
-
-                    update(venda);
 
                 }
 
+                scanntechsincService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
             }
-
-            scanntechsincService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
         }
 
     }
@@ -132,7 +117,7 @@ public class NotasaiService {
                 + " COUNT(n) "
                 + "FROM Notasai n "
                 + "WHERE "
-                 + "(n.codfil = :codfil) "
+                + "(n.codfil = :codfil) "
                 + "AND (((n.dthrlanc BETWEEN :inicio AND :fim) "
                 + "AND (n.envioscanntech IS NULL) "
                 + "AND (n.situacao IN ('N', 'E'))"

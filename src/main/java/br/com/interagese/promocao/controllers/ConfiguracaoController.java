@@ -28,16 +28,5 @@ public class ConfiguracaoController extends PadraoController<Configuracao> {
     @Autowired
     public ConfiguracaoService service;
 
-//    @PostMapping(path = "/processConfimationConfig")
-//    public String processConfimationConfig(@RequestBody String json) {
-//        try {
-//            Configuracao result = (Configuracao) deserializar(json, Configuracao.class); 
-//            
-//            service.processConfimationConfig(result);
-//            return serializar("ok");
-//        } catch (Exception ex) {
-//            return returnException(ex);
-//        }
-//    }
 
 }

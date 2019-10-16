@@ -1,20 +1,19 @@
 package br.com.interagese.promocao.service;
 
 import br.com.interagese.padrao.rest.util.PadraoService;
-import br.com.interagese.postgres.models.Configuracao;
+import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FechamentoPromocao;
 import br.com.interagese.postgres.models.FilialScanntech;
-import br.com.interagese.postgres.models.Url;
 import br.com.interagese.promocao.enuns.StatusEnvio;
 import br.com.interagese.promocao.util.ScanntechRestClient;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import static java.util.stream.Collectors.*;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -24,6 +23,8 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebird;
+    @Autowired
+    private ConfiguracaoService configuracaoService;
 
     private final ScanntechRestClient restClient;
     private final SimpleDateFormat dbDateFormat;
@@ -35,77 +36,66 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
     public void enviarFechamento(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
         //Configuracao de teste
-        Configuracao configuracao = new Configuracao();
-        configuracao.setCodigoEmpresa("31672");
+      
+        for (ConfiguracaoItem configuracao : configuracaoService.findById(1).getConfiguracaoItem()) {
+            for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
-        Url url = new Url();
-        url.setValor("http://br.homo.apipdv.scanntech.com");
-        configuracao.setListaUrl(Arrays.asList(url));
+                int codfil = filialScanntech1.getCodigoFilial().intValue();
+                int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
-        FilialScanntech f = new FilialScanntech();
-        f.setCodigoFilial(1L);
-        f.setCodigoScanntech(1L);
-        configuracao.setListaFilial(Arrays.asList(f));
+                List<FechamentoPromocao> fechamentos = getFechamentos(
+                        dataDaUltimaSincronizacao,
+                        dataDaSincronizacaoAtual,
+                        codfil,
+                        null
+                );
 
-        configuracao.setUsuario("integrador_test@interagese.com.br");
-        configuracao.setSenha("integrador");
+                for (FechamentoPromocao fechamento : fechamentos) {
 
-        for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
+                    fechamento.setCodigoScanntech(Integer.valueOf(codscanntech).longValue());
 
-            int codfil = filialScanntech1.getCodigoFilial().intValue();
-            int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
+                    int statusCode = 0;
+                    String message = "";
 
-            List<FechamentoPromocao> fechamentos = getFechamentos(
-                    dataDaUltimaSincronizacao,
-                    dataDaSincronizacaoAtual,
-                    codfil,
-                    null
-            );
+                    try {
+                        ResponseEntity<String> response = restClient.enviarFechamento(
+                                configuracao,
+                                fechamento,
+                                codscanntech,
+                                fechamento.getNumeroCaixa().intValue()
+                        );
 
-            for (FechamentoPromocao fechamento : fechamentos) {
+                        statusCode = response.getStatusCodeValue();
+                        message = response.getBody();
 
-                fechamento.setCodigoScanntech(Integer.valueOf(codscanntech).longValue());
+                    } catch (HttpClientErrorException e) {
 
-                int statusCode = 0;
-                String message = "";
+                        statusCode = e.getRawStatusCode();
+                        message = e.getResponseBodyAsString();
 
-                try {
-                    ResponseEntity<String> response = restClient.enviarFechamento(
-                            configuracao,
-                            fechamento,
-                            codscanntech,
-                            fechamento.getNumeroCaixa().intValue()
-                    );
+                    }
 
-                    statusCode = response.getStatusCodeValue();
-                    message = response.getBody();
+                    if (statusCode == 200
+                            || statusCode == 208) {
 
-                } catch (HttpClientErrorException e) {
+                        fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
 
-                    statusCode = e.getRawStatusCode();
-                    message = e.getResponseBodyAsString();
+                    } else if (statusCode == 408
+                            || (statusCode >= 500 && statusCode <= 599)) {
 
+                        fechamento.setObsScanntech(message);
+                        fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
+
+                    } else {
+                        fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
+                    }
+
+                    create(fechamento);
                 }
 
-                if (statusCode == 200
-                        || statusCode == 208) {
-
-                    fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
-
-                } else if (statusCode == 408
-                        || (statusCode >= 500 && statusCode <= 599)) {
-
-                    fechamento.setObsScanntech(message);
-                    fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
-
-                } else {
-                    fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
-                }
-
-                create(fechamento);
             }
-
         }
+
     }
 
     private List<FechamentoPromocao> getFechamentos(Date dataInicio, Date dataFim, Integer codfil, Integer nrcaixa) {

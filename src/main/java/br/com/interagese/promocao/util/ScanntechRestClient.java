@@ -1,19 +1,13 @@
 package br.com.interagese.promocao.util;
 
 import br.com.firebird.models.Notasai;
-import br.com.interagese.postgres.models.Configuracao;
+import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FechamentoPromocao;
 import br.com.interagese.postgres.models.Url;
 import br.com.interagese.promocao.enuns.EstadoPromocao;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.SocketTimeoutException;
-import java.text.SimpleDateFormat;
 import java.util.Base64;
-import java.util.Date;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +19,7 @@ import org.springframework.web.client.RestTemplate;
 
 public class ScanntechRestClient {
 
-    public ResponseEntity<JsonNode> buscarPromocoes(Configuracao configuracao, EstadoPromocao estado, Integer idLocal) {
+    public ResponseEntity<JsonNode> buscarPromocoes(ConfiguracaoItem configuracao, EstadoPromocao estado, Integer idLocal) {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
@@ -64,7 +58,7 @@ public class ScanntechRestClient {
 
     }
 
-    public ResponseEntity<String> enviarVenda(Configuracao configuracao, Notasai venda, Integer idLocal, Integer nrcaixa) {
+    public ResponseEntity<String> enviarVenda(ConfiguracaoItem configuracao, Notasai venda, Integer idLocal, Integer nrcaixa) {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
@@ -105,7 +99,7 @@ public class ScanntechRestClient {
 
     }
 
-    public ResponseEntity<String> enviarFechamento(Configuracao configuracao, FechamentoPromocao fechamento, Integer idLocal, Integer nrcaixa) throws HttpClientErrorException {
+    public ResponseEntity<String> enviarFechamento(ConfiguracaoItem configuracao, FechamentoPromocao fechamento, Integer idLocal, Integer nrcaixa) throws HttpClientErrorException {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
