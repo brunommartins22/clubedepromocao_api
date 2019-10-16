@@ -2,4 +2,33 @@
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
     
+    <changeSet id="Criar trigger na tabela NOTASAI" author="Promoção - José">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT
+                count(*) FROM sincronizacao_fechamento
+            </sqlCheck>
+        </preConditions>
+        <sql splitStatements="true">
+            INSERT INTO sincronizacao_fechamento
+            (id, data)
+            (select nextvalue('seq_sincronizacao_fechamento'), now());
+        </sql> 
+    </changeSet>
+    
+    <changeSet id="Criar Confuracao inicial" author="Promoção - José">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT
+                count(*) FROM configuracao
+            </sqlCheck>
+        </preConditions>
+        <sql splitStatements="true">
+            INSERT INTO configuracao
+            (id, intervalo_sincronizacao)
+            (select nextvalue('seq_configuracao'), 15);
+        </sql> 
+    </changeSet>
+
+    
 </databaseChangeLog>
