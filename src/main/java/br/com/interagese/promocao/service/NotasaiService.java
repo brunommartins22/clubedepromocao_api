@@ -90,12 +90,12 @@ public class NotasaiService {
                 for (Notasai venda : vendasParaEnvio) {
 
                     for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
-                        
+
                         venda.setDescontoTotal(notasaiitens.getDesconto() + venda.getDescontoTotal());
                         venda.setAcrescimentoTotal(notasaiitens.getAcrescimo() + venda.getAcrescimentoTotal());
-                        
+
                     }
-                    
+
                     ResponseEntity<String> response = restClient.enviarVenda(
                             configuracao,
                             venda,
@@ -107,19 +107,19 @@ public class NotasaiService {
                             || response.getStatusCode() == HttpStatus.ALREADY_REPORTED) {
 
                         venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
-                        
+
                     } else if (response.getStatusCode() == HttpStatus.REQUEST_TIMEOUT
                             || (response.getStatusCodeValue() >= 500 && response.getStatusCodeValue() <= 599)) {
 
                         venda.setObsscanntech(response.getBody());
                         venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
-                        
-                    }else{
+
+                    } else {
                         venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
                     }
-                    
+
                     update(venda);
-                    
+
                 }
 
             }
@@ -135,10 +135,12 @@ public class NotasaiService {
                 + " COUNT(n) "
                 + "FROM Notasai n "
                 + "WHERE "
-                + "((n.codfil = :codfil) "
-                + "AND (n.dthrlanc BETWEEN :inicio AND :fim) "
-                + "AND (n.envioscanntech IS NULL OR n.envioscanntech = 'P') "
-                + "AND (n.nrnotaf IS NOT NULL AND n.nrnotaf <> ''))";
+                 + "(n.codfil = :codfil) "
+                + "AND (((n.dthrlanc BETWEEN :inicio AND :fim) "
+                + "AND (n.envioscanntech IS NULL) "
+                + "AND (n.situacao IN ('N', 'E'))"
+                + "AND (n.nrnotaf IS NOT NULL AND n.nrnotaf <> ''))"
+                + "OR (n.envioscanntech = 'P'))";
 
         TypedQuery<Number> query = emFirebird.createQuery(hql, Number.class)
                 .setParameter("codfil", codfil)
@@ -155,10 +157,12 @@ public class NotasaiService {
                 + " n "
                 + "FROM Notasai n "
                 + "WHERE "
-                + "((n.codfil = :codfil) "
-                + "AND (n.dthrlanc BETWEEN :inicio AND :fim) "
-                + "AND (n.envioscanntech IS NULL OR n.envioscanntech = 'P') "
-                + "AND (n.nrnotaf IS NOT NULL AND n.nrnotaf <> ''))";
+                + "(n.codfil = :codfil) "
+                + "AND (((n.dthrlanc BETWEEN :inicio AND :fim) "
+                + "AND (n.envioscanntech IS NULL) "
+                + "AND (n.situacao IN ('N', 'E'))"
+                + "AND (n.nrnotaf IS NOT NULL AND n.nrnotaf <> ''))"
+                + "OR (n.envioscanntech = 'P'))";
 
         TypedQuery<Notasai> query = emFirebird.createQuery(hql, Notasai.class);
         query.setParameter("codfil", codfil);
@@ -217,8 +221,8 @@ public class NotasaiService {
         Query query = emFirebird.createQuery(hql);
         return query.getResultList();
     }
-    
-    private void update(Notasai notasai){
+
+    private void update(Notasai notasai) {
         emFirebird.merge(notasai);
     }
 

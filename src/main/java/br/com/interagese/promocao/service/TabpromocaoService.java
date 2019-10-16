@@ -3,7 +3,12 @@ package br.com.interagese.promocao.service;
 import br.com.firebird.models.Tabpromocao;
 import br.com.firebird.models.Tabpromoitem;
 import br.com.interagese.padrao.rest.util.PadraoService;
+import br.com.interagese.postgres.models.Configuracao;
+import br.com.interagese.postgres.models.FilialScanntech;
+import br.com.interagese.postgres.models.SincronizacaoPromocao;
+import br.com.interagese.postgres.models.Url;
 import br.com.interagese.promocao.enuns.EstadoPromocao;
+import br.com.interagese.promocao.util.ScanntechRestClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -16,61 +21,31 @@ import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.NonUniqueResultException;
 import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
 import javax.persistence.TypedQuery;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
 
 @Service
-public class TabpromocaoService extends PadraoService<Tabpromocao> {
+public class TabpromocaoService {
 
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebird;
 
+    @PersistenceContext(unitName = "default")
+    private EntityManager em;
+
     private final SimpleDateFormat dateFormat;
+    private final ScanntechRestClient scanntechRestClient;
 
     public TabpromocaoService() {
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+        this.scanntechRestClient = new ScanntechRestClient();
     }
-
-    public Map<String, ?> load(Object id, String idName, List<String> fields) {
-
-        try {
-            StringBuilder hql = new StringBuilder();
-
-            // String columns = String.join(",", fields);
-            StringBuilder columns = new StringBuilder();
-            String delimiter = "";
-            for (String f : fields) {
-                String value[] = f.split(",");
-                for (int i = 0; i < value.length; i++) {
-                    columns.append(delimiter).append(" ");
-                    columns.append(value[i]).append(" as ").append(value[i]);
-                    delimiter = ",";
-                }
-            }
-
-            hql.append(" select new Map(").append(columns).append(") ");
-            hql.append(" from Tabpromoitem ");
-            hql.append(" where ").append(idName).append(" = :id ");
-            Map<String, ?> result = (Map<String, ?>) emFirebird.createQuery(hql.toString()).setParameter("id", id)
-                    .getSingleResult();
-
-            return result;
-        } catch (NoResultException ex) {
-            return null;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-    }
-
-    @Override
+    
     public Tabpromocao create(Tabpromocao obj) throws Exception {
 
         int codMax = getCodMax();
@@ -116,54 +91,97 @@ public class TabpromocaoService extends PadraoService<Tabpromocao> {
 
     }
 
-    private void baixarPromocoes(EstadoPromocao estado) throws Exception {
-        String urlBase = "http://br.homo.apipdv.scanntech.com";
-        String idEmpresa = "31672";
-        String idLocal = "1";
-        String usuario = "integrador_test@interagese.com.br";
-        String senha = "integrador";
+    private int baixarPromocoes(EstadoPromocao estado) throws Exception {
 
-        String endpoint = urlBase + "/pmkt-rest-api/minoristas/" + idEmpresa + "/locales/" + idLocal + "/promocionesConLimitePorTicket?estado=" + estado.getValorScanntech();
+        //Configuracao de teste
+        Configuracao configuracao = new Configuracao();
+        configuracao.setCodigoEmpresa("31672");
 
-        RestTemplate restClient = new RestTemplate();
-        MultiValueMap<String, String> headers = createHeaders(usuario, senha);
-        ResponseEntity<JsonNode> response = restClient.exchange(endpoint, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class);
+        Url url = new Url();
+        url.setValor("http://br.homo.apipdv.scanntech.com");
+        configuracao.setListaUrl(Arrays.asList(url));
 
-        if (response.getStatusCodeValue() == 200) {
-            int promocoesInseridas = 0;
-            
+        FilialScanntech f = new FilialScanntech();
+        f.setCodigoFilial(1L);
+        f.setCodigoScanntech(1L);
+        configuracao.setListaFilial(Arrays.asList(f));
 
-            List<Tabpromocao> promocoes = convertJsonNodeToTabpromocaoList(response.getBody());
-            for (int i = 0; i < promocoes.size(); i++) {
-                Tabpromocao promocao = promocoes.get(i);
-                Tabpromocao promocaoTemp = loadBycodscanntech(promocao.getCodscanntech());
-                if (promocaoTemp != null) {
-                    promocaoTemp.setSituacao(estado.getValorInterage());
-                    update(promocaoTemp);
-                    promocoes.set(i, promocaoTemp);
-                } else {
+        configuracao.setUsuario("integrador_test@interagese.com.br");
+        configuracao.setSenha("integrador");
 
-                    promocao.setRgcodusu(1);
-                    promocao.setRgusuario("INTER");
-                    promocao.setRgdata(new Date());
-                    promocao.setRgevento(1);
+        for (FilialScanntech filialScanntech : configuracao.getListaFilial()) {
 
-                    promocao.setSituacao(estado.getValorInterage());
-                    create(promocao);
-                    promocoesInseridas++;
+            ResponseEntity<JsonNode> response = scanntechRestClient.buscarPromocoes(configuracao, estado, filialScanntech.getCodigoScanntech().intValue());
+
+            if (response.getStatusCodeValue() == 200) {
+                int promocoesInseridas = 0;
+
+                List<Tabpromocao> promocoes = convertJsonNodeToTabpromocaoList(response.getBody());
+                for (int i = 0; i < promocoes.size(); i++) {
+                    Tabpromocao promocao = promocoes.get(i);
+                    Tabpromocao promocaoTemp = loadBycodscanntech(promocao.getCodscanntech());
+                    if (promocaoTemp != null) {
+                        promocaoTemp.setSituacao(estado.getValorInterage());
+                        update(promocaoTemp);
+                        promocoes.set(i, promocaoTemp);
+                    } else {
+
+                        promocao.setRgcodusu(1);
+                        promocao.setRgusuario("INTER");
+                        promocao.setRgdata(new Date());
+                        promocao.setRgevento(1);
+
+                        promocao.setSituacao(estado.getValorInterage());
+                        create(promocao);
+
+                    }
                 }
+
+                vincularPromocoesAFilial(filialScanntech.getCodigoFilial().intValue(), promocoes);
+                return promocoesInseridas;
             }
 
-           
         }
+        
+        
+        return 0;
+
     }
 
-    @Transactional("integradoTransaction")
+    @Transactional("multiTransaction")
     public void baixarPromocoes() throws Exception {
 
-        baixarPromocoes(EstadoPromocao.ACEITA);
-        baixarPromocoes(EstadoPromocao.PENDENTE);
-        baixarPromocoes(EstadoPromocao.REJEITADA);
+        int promocoesBaixadas = 0;
+        
+        promocoesBaixadas += baixarPromocoes(EstadoPromocao.ACEITA);
+        promocoesBaixadas += baixarPromocoes(EstadoPromocao.PENDENTE);
+        promocoesBaixadas += baixarPromocoes(EstadoPromocao.REJEITADA);
+        
+        inserirSincronizacao(promocoesBaixadas);
+    }
+
+    private void vincularPromocoesAFilial(int codfil, List<Tabpromocao> promocoes) {
+
+        String selectSql = "select count(*) from tabpromocaofilial where codfil = :codfil and codpromocao = :codpromocao";
+
+        Query selectQuery = emFirebird.createNativeQuery(selectSql);
+
+        for (Tabpromocao promocao : promocoes) {
+
+            selectQuery.setParameter("codpromocao", promocao.getCodpromocao());
+
+            selectQuery.setParameter("codfil", codfil);
+
+            if (((Number) selectQuery.getSingleResult()).longValue() < 1) {
+                String insertSql = "insert into tabpromocaofilial (codpromocao, codfil) values(:codpromocao, :codfil)";
+                Query insertQuery = emFirebird.createNativeQuery(insertSql);
+                insertQuery.setParameter("codpromocao", promocao.getCodpromocao());
+                insertQuery.setParameter("codfil", codfil);
+                insertQuery.executeUpdate();
+            }
+
+        }
+
     }
 
     private List<Tabpromocao> convertJsonNodeToTabpromocaoList(JsonNode json) throws Exception {
@@ -172,7 +190,7 @@ public class TabpromocaoService extends PadraoService<Tabpromocao> {
         List<Tabpromocao> promocoes = new ArrayList();
         for (JsonNode jsonNode : jsonArray) {
             Tabpromocao tabpromocao = new Tabpromocao();
-            tabpromocao.setCodscanntech(jsonNode.get("id").asText());
+            tabpromocao.setCodscanntech(jsonNode.get("id").asInt());
             tabpromocao.setTitulo(jsonNode.get("titulo").asText());
             tabpromocao.setDescricao(jsonNode.get("descripcion").asText());
             tabpromocao.setTipo(convertPromocaoConstantToPromocaoCode(jsonNode.get("tipo").asText()));
@@ -257,8 +275,8 @@ public class TabpromocaoService extends PadraoService<Tabpromocao> {
         return promocoes;
 
     }
-    
-    public Tabpromocao loadBycodscanntech(String codscann) {
+
+    public Tabpromocao loadBycodscanntech(Integer codscann) {
         String hql = "SELECT t FROM Tabpromocao t WHERE t.codscanntech = :codscann ";
         TypedQuery<Tabpromocao> query = emFirebird.createQuery(hql, Tabpromocao.class);
         query.setParameter("codscann", codscann);
@@ -295,10 +313,48 @@ public class TabpromocaoService extends PadraoService<Tabpromocao> {
         headers.add("Authorization", "Basic " + authorization);
         return headers;
     }
+    
+    
 
-    @Override
-    public Tabpromocao update(Tabpromocao obj) throws Exception {
-        return emFirebird.merge(obj);
+    public Map<String, ?> load(Object id, String idName, List<String> fields) {
+
+        try {
+            StringBuilder hql = new StringBuilder();
+
+            // String columns = String.join(",", fields);
+            StringBuilder columns = new StringBuilder();
+            String delimiter = "";
+            for (String f : fields) {
+                String value[] = f.split(",");
+                for (int i = 0; i < value.length; i++) {
+                    columns.append(delimiter).append(" ");
+                    columns.append(value[i]).append(" as ").append(value[i]);
+                    delimiter = ",";
+                }
+            }
+
+            hql.append(" select new Map(").append(columns).append(") ");
+            hql.append(" from Tabpromoitem ");
+            hql.append(" where ").append(idName).append(" = :id ");
+            Map<String, ?> result = (Map<String, ?>) emFirebird.createQuery(hql.toString()).setParameter("id", id)
+                    .getSingleResult();
+
+            return result;
+        } catch (NoResultException ex) {
+            return null;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    private void update(Tabpromocao obj) throws Exception {
+        emFirebird.merge(obj);
+    }
+
+    private void inserirSincronizacao(int quantidadeDePromocoesInseridas) {
+        SincronizacaoPromocao promocao = new SincronizacaoPromocao(quantidadeDePromocoesInseridas);
+        em.persist(promocao);
     }
 
 }

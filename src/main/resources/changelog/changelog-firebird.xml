@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+ 
+    <changeSet id="CREATE TABLE TABPROMOCAO" author="Promoção - José" runOnChange="true">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="TABPROMOCAO"/>
+            </not>
+        </preConditions>
+        <sql splitStatements="true">
+            CREATE TABLE TABPROMOCAO (
+            CODPROMOCAO     INTEGER NOT NULL,
+            CODSCANNTECH    INTEGER,
+            TITULO          VARCHAR(255),
+            DESCRICAO       VARCHAR(255),
+            DATAINICIO      TIMESTAMP,
+            DATAFIM         TIMESTAMP,
+            LIMITEPORCUPOM  INTEGER,
+            AUTOR           VARCHAR(255),
+            SITUACAO        VARCHAR(1),
+            PRECO           DOUBLE PRECISION,
+            DESCONTO        DOUBLE PRECISION,
+            PAGA            INTEGER,
+            TIPO            INTEGER,
+            RGCODUSU        INTEGER,
+            RGUSUARIO       VARCHAR(8),
+            RGDATA          TIMESTAMP,
+            RGEVENTO        INTEGER DEFAULT 1
+            );
+
+            ALTER TABLE TABPROMOCAO ADD CONSTRAINT PK_TABPROMOCAO PRIMARY KEY (CODPROMOCAO);
+
+        </sql>
+    </changeSet>
+     
+    <changeSet id="CREATE TABLE TABPROMOITEM" author="Promoção - José" runOnChange="true">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="TABPROMOITEM"/>
+            </not>
+        </preConditions>
+        <sql splitStatements="true">
+            CREATE TABLE TABPROMOITEM (
+            CODITEM      INTEGER NOT NULL,
+            CODPROMOCAO  INTEGER NOT NULL,
+            CODPRO       VARCHAR(6),
+            CODBARUN     VARCHAR(20),
+            DESCPRO      VARCHAR(60),
+            TIPO         VARCHAR(1),
+            QUANTIDADE   DOUBLE PRECISION
+            );
+
+            ALTER TABLE TABPROMOITEM ADD CONSTRAINT PK_TABPROMOITEM PRIMARY KEY (CODITEM, CODPROMOCAO);
+
+            ALTER TABLE TABPROMOITEM ADD CONSTRAINT FK_TABPROMOITEM_1 FOREIGN KEY (CODPROMOCAO) REFERENCES TABPROMOCAO (CODPROMOCAO);
+
+        </sql>
+    </changeSet>
+     
+    <changeSet id="CREATE TABLE TABPROMOCAOFILIAL" author="Promoção - José" runOnChange="true">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="TABPROMOCAOFILIAL"/>
+            </not>
+        </preConditions>
+        <sql splitStatements="true">
+            CREATE TABLE TABPROMOCAOFILIAL (
+            CODPROMOCAO  INTEGER NOT NULL,
+            CODFIL       INTEGER NOT NULL
+            );
+
+            ALTER TABLE TABPROMOCAOFILIAL ADD CONSTRAINT PK_TABPROMOCAOFILIAL PRIMARY KEY (CODPROMOCAO, CODFIL);
+
+            ALTER TABLE TABPROMOCAOFILIAL ADD CONSTRAINT FK_TABPROMOCAOFILIAL_1 FOREIGN KEY (CODPROMOCAO) REFERENCES TABPROMOCAO (CODPROMOCAO);
+            ALTER TABLE TABPROMOCAOFILIAL ADD CONSTRAINT FK_TABPROMOCAOFILIAL_2 FOREIGN KEY (CODFIL) REFERENCES TABFIL (CODFIL);
+        </sql>
+    </changeSet>
+    
+    <changeSet id="ADD COLUMN ENVIOSCANNTECH ON NOTASAI" author="Promoção - José">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="NOTASAI" columnName="ENVIOSCANNTECH"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="NOTASAI" schemaName="">
+            <column name="ENVIOSCANNTECH" type="varchar(1)"/>
+        </addColumn>
+    </changeSet>
+    
+    <changeSet id="ADD COLUMN OBSSCANNTECH ON NOTASAI" author="Promoção - José">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="NOTASAI" columnName="OBSSCANNTECH"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="NOTASAI" schemaName="">
+            <column name="OBSSCANNTECH" type="varchar(255)"/>
+        </addColumn>
+    </changeSet>
+    
+    <changeSet id="ADD COLUMN CODSCANNTECH ON TABFIL" author="Promoção - José">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="TABFIL" columnName="CODSCANNTECH"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="TABFIL" schemaName="">
+            <column name="CODSCANNTECH" type="int"/>
+        </addColumn>
+    </changeSet>
+    
+    <changeSet id="Criar trigger na tabela NOTASAI" author="Promoção - José">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT
+                count(RDB$TRIGGER_NAME) FROM RDB$TRIGGERS
+                WHERE 
+                RDB$TRIGGER_NAME = 'TR_SCANNTECH'
+            </sqlCheck>
+        </preConditions>
+        <sql splitStatements="false">
+            CREATE OR ALTER trigger TR_SCANNTECH for notasai
+            active before update position 1
+            AS
+            begin
+            IF(NEW.SITUACAO IN ('A', 'C') AND OLD.ENVIOSCANNTECH = 'E')
+            THEN NEW.ENVIOSCANNTECH = 'P';
+            end
+        </sql> 
+    </changeSet>
+
+    
+</databaseChangeLog>

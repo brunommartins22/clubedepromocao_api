@@ -44,7 +44,7 @@ public class SincronizadorService {
 //                }
 //                System.out.println("Teste: " + dataDoUltimoFechamento);
                 // notasaiService.enviarVendas();
-                // tabpromocaoService.baixarPromocoes();
+                //tabpromocaoService.baixarPromocoes();
                 //System.out.println("Promoção baixadas");
             } catch (Exception ex) {
                 ex.printStackTrace();
