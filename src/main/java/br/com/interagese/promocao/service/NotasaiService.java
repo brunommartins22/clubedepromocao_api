@@ -42,7 +42,7 @@ public class NotasaiService {
     @Transactional("integradoTransaction")
     public void enviarVendas() throws Exception {
 
-        Date dataDaUltimaSincronizacao = scanntechsincService.getDataDaUltimaSincronizacao();
+        Date dataDaUltimaSincronizacao = scanntechsincService.getDataDaUltimaSincronizacaoDeVenda();
         Date dataDaSincronizacaoAtual = new Date();
 
         //Configuracao de teste
@@ -91,11 +91,12 @@ public class NotasaiService {
 
                     for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
                         
-                        venda.setVldescnot(notasaiitens.getDesconto() + venda.getVldescnot());
+                        venda.setDescontoTotal(notasaiitens.getDesconto() + venda.getDescontoTotal());
+                        venda.setAcrescimentoTotal(notasaiitens.getAcrescimo() + venda.getAcrescimentoTotal());
                         
                     }
                     
-                    ResponseEntity<String> response = restClient.enviarVendas(
+                    ResponseEntity<String> response = restClient.enviarVenda(
                             configuracao,
                             venda,
                             codscanntech,
@@ -123,7 +124,7 @@ public class NotasaiService {
 
             }
 
-            scanntechsincService.insertSincronizacao(dataDaSincronizacaoAtual);
+            scanntechsincService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
         }
 
     }

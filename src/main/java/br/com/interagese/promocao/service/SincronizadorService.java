@@ -1,5 +1,9 @@
 package br.com.interagese.promocao.service;
 
+import java.time.Instant;
+import java.time.Period;
+import java.time.ZoneId;
+import java.util.Date;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -11,9 +15,15 @@ public class SincronizadorService {
 
     @Autowired
     private TabpromocaoService tabpromocaoService;
-    
+
     @Autowired
     private NotasaiService notasaiService;
+
+    @Autowired
+    private FechamentoPromocaoService fechamentoPromocaoService;
+
+    @Autowired
+    private SincronizacaoService sincronizacaoService;
 
     public SincronizadorService() {
 
@@ -24,7 +34,16 @@ public class SincronizadorService {
         if (!executando) {
             executando = true;
             try {
-               // notasaiService.enviarVendas();
+
+//                Date dataDaSincronizacaoAtual = new Date();
+//                Date dataDoUltimoFechamento = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento();
+//                if (foiAMaisDe1DiasAtras(dataDoUltimoFechamento)) {
+//
+//                    //fechamentoPromocaoService.enviarFechamento(dataDoUltimoFechamento, dataDaSincronizacaoAtual);
+//
+//                }
+//                System.out.println("Teste: " + dataDoUltimoFechamento);
+                // notasaiService.enviarVendas();
                 // tabpromocaoService.baixarPromocoes();
                 //System.out.println("Promoção baixadas");
             } catch (Exception ex) {
@@ -33,6 +52,17 @@ public class SincronizadorService {
                 executando = false;
             }
         }
+    }
+
+    private boolean foiAMaisDe1DiasAtras(Date dataDoUltimoFechamento) {
+
+        return Period
+                .between(
+                        Instant.ofEpochMilli(dataDoUltimoFechamento.getTime())
+                                .atZone(ZoneId.systemDefault()).toLocalDate(),
+                        Instant.now().atZone(ZoneId.systemDefault()).toLocalDate())
+                .getDays() > 2;
+
     }
 
 }

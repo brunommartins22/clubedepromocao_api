@@ -2,6 +2,7 @@ package br.com.interagese.promocao.util;
 
 import br.com.firebird.models.Notasai;
 import br.com.interagese.postgres.models.Configuracao;
+import br.com.interagese.postgres.models.FechamentoPromocao;
 import br.com.interagese.postgres.models.Url;
 import br.com.interagese.promocao.enuns.EstadoPromocao;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -62,7 +63,7 @@ public class ScanntechRestClient {
 
     }
 
-    public ResponseEntity<String> enviarVendas(Configuracao configuracao, Notasai venda, Integer idLocal, Integer nrcaixa) {
+    public ResponseEntity<String> enviarVenda(Configuracao configuracao, Notasai venda, Integer idLocal, Integer nrcaixa) {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
@@ -110,6 +111,51 @@ public class ScanntechRestClient {
         return null;
 
     }
+    
+    public ResponseEntity<String> enviarFechamento(Configuracao configuracao, FechamentoPromocao fechamento, Integer idLocal, Integer nrcaixa) throws HttpClientErrorException{
+
+        for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
+
+            Url url = configuracao.getListaUrl().get(i);
+
+            try {
+                String urlBase = url.getValor();
+                String idEmpresa = configuracao.getCodigoEmpresa();
+                String usuario = configuracao.getUsuario();
+                String senha = configuracao.getSenha();
+
+                String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/"+ nrcaixa +"/cierresDiarios";
+
+                RestTemplate restTemplate = new RestTemplate();
+                MultiValueMap<String, String> headers = createHeaders(usuario, senha);
+                
+                ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(fechamento, headers), String.class);
+
+                return response;
+
+            } catch (RestClientException e) {
+                
+                 if (i >= configuracao.getListaUrl().size()) {
+                    throw e;
+                }
+                
+                if(e instanceof HttpClientErrorException){
+                    throw e;
+                }
+                
+                if (!(e.getCause() instanceof SocketTimeoutException)) {
+                    throw e;
+                }
+
+               
+
+            }
+
+        }
+
+        return null;
+
+    }
 
     private MultiValueMap<String, String> createHeaders(String usuario, String senha) {
         MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
@@ -118,10 +164,6 @@ public class ScanntechRestClient {
         headers.add("Authorization", "Basic " + authorization);
         headers.add("Content-Type", "application/json");
         return headers;
-    }
-    
-    public static void main(String[] args) {
-        System.out.println(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(new Date()));
     }
 
 }
