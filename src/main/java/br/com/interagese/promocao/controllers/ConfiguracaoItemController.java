@@ -7,12 +7,9 @@ package br.com.interagese.promocao.controllers;
 
 import br.com.interagese.padrao.rest.util.IsServiceDefault;
 import br.com.interagese.padrao.rest.util.PadraoController;
-import br.com.interagese.promocao.service.ConfiguracaoService;
-import br.com.interagese.postgres.models.Configuracao;
-import java.util.List;
+import br.com.interagese.postgres.models.ConfiguracaoItem;
+import br.com.interagese.promocao.service.ConfiguracaoItemService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,12 +18,15 @@ import org.springframework.web.bind.annotation.RestController;
  * @author Bruno Martins
  */
 @RestController
-@RequestMapping(path = "api/configuracoes")
-public class ConfiguracaoController extends PadraoController<Configuracao> {
-
+@RequestMapping("api/configuracaoitem")
+public class ConfiguracaoItemController extends PadraoController<ConfiguracaoItem>{
+    
+    
     @IsServiceDefault
     @Autowired
-    public ConfiguracaoService service;
+    private ConfiguracaoItemService service;
 
 
+   
+    
 }

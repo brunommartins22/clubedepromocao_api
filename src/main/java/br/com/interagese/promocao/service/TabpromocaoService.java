@@ -4,6 +4,7 @@ import br.com.firebird.models.Tabpromocao;
 import br.com.firebird.models.Tabpromoitem;
 import br.com.interagese.padrao.rest.util.PadraoService;
 import br.com.interagese.postgres.models.Configuracao;
+import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FilialScanntech;
 import br.com.interagese.postgres.models.SincronizacaoPromocao;
 import br.com.interagese.postgres.models.Url;
@@ -23,6 +24,7 @@ import javax.persistence.NonUniqueResultException;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +36,8 @@ public class TabpromocaoService {
 
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebird;
+    @Autowired
+    private ConfiguracaoService configuracaoService;
 
     @PersistenceContext(unitName = "default")
     private EntityManager em;
@@ -45,7 +49,7 @@ public class TabpromocaoService {
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         this.scanntechRestClient = new ScanntechRestClient();
     }
-    
+
     public Tabpromocao create(Tabpromocao obj) throws Exception {
 
         int codMax = getCodMax();
@@ -93,57 +97,43 @@ public class TabpromocaoService {
 
     private int baixarPromocoes(EstadoPromocao estado) throws Exception {
 
-        //Configuracao de teste
-        Configuracao configuracao = new Configuracao();
-        configuracao.setCodigoEmpresa("31672");
+        for (ConfiguracaoItem configuracao : configuracaoService.findById(1).getConfiguracaoItem()) {
+            for (FilialScanntech filialScanntech : configuracao.getListaFilial()) {
 
-        Url url = new Url();
-        url.setValor("http://br.homo.apipdv.scanntech.com");
-        configuracao.setListaUrl(Arrays.asList(url));
+                ResponseEntity<JsonNode> response = scanntechRestClient.buscarPromocoes(configuracao, estado, filialScanntech.getCodigoScanntech().intValue());
 
-        FilialScanntech f = new FilialScanntech();
-        f.setCodigoFilial(1L);
-        f.setCodigoScanntech(1L);
-        configuracao.setListaFilial(Arrays.asList(f));
+                if (response.getStatusCodeValue() == 200) {
+                    int promocoesInseridas = 0;
 
-        configuracao.setUsuario("integrador_test@interagese.com.br");
-        configuracao.setSenha("integrador");
+                    List<Tabpromocao> promocoes = convertJsonNodeToTabpromocaoList(response.getBody());
+                    for (int i = 0; i < promocoes.size(); i++) {
+                        Tabpromocao promocao = promocoes.get(i);
+                        Tabpromocao promocaoTemp = loadBycodscanntech(promocao.getCodscanntech());
+                        if (promocaoTemp != null) {
+                            promocaoTemp.setSituacao(estado.getValorInterage());
+                            update(promocaoTemp);
+                            promocoes.set(i, promocaoTemp);
+                        } else {
 
-        for (FilialScanntech filialScanntech : configuracao.getListaFilial()) {
+                            promocao.setRgcodusu(1);
+                            promocao.setRgusuario("INTER");
+                            promocao.setRgdata(new Date());
+                            promocao.setRgevento(1);
 
-            ResponseEntity<JsonNode> response = scanntechRestClient.buscarPromocoes(configuracao, estado, filialScanntech.getCodigoScanntech().intValue());
-
-            if (response.getStatusCodeValue() == 200) {
-                int promocoesInseridas = 0;
-
-                List<Tabpromocao> promocoes = convertJsonNodeToTabpromocaoList(response.getBody());
-                for (int i = 0; i < promocoes.size(); i++) {
-                    Tabpromocao promocao = promocoes.get(i);
-                    Tabpromocao promocaoTemp = loadBycodscanntech(promocao.getCodscanntech());
-                    if (promocaoTemp != null) {
-                        promocaoTemp.setSituacao(estado.getValorInterage());
-                        update(promocaoTemp);
-                        promocoes.set(i, promocaoTemp);
-                    } else {
-
-                        promocao.setRgcodusu(1);
-                        promocao.setRgusuario("INTER");
-                        promocao.setRgdata(new Date());
-                        promocao.setRgevento(1);
-
-                        promocao.setSituacao(estado.getValorInterage());
-                        create(promocao);
-                        promocoesInseridas++;
+                            promocao.setSituacao(estado.getValorInterage());
+                            create(promocao);
+                            promocoesInseridas++;
+                        }
                     }
+
+                    vincularPromocoesAFilial(filialScanntech.getCodigoFilial().intValue(), promocoes);
+                    return promocoesInseridas;
                 }
 
-                vincularPromocoesAFilial(filialScanntech.getCodigoFilial().intValue(), promocoes);
-                return promocoesInseridas;
             }
 
         }
-        
-        
+
         return 0;
 
     }
@@ -152,11 +142,11 @@ public class TabpromocaoService {
     public void baixarPromocoes() throws Exception {
 
         int promocoesBaixadas = 0;
-        
+
         promocoesBaixadas += baixarPromocoes(EstadoPromocao.ACEITA);
         promocoesBaixadas += baixarPromocoes(EstadoPromocao.PENDENTE);
         promocoesBaixadas += baixarPromocoes(EstadoPromocao.REJEITADA);
-        
+
         inserirSincronizacao(promocoesBaixadas);
     }
 
@@ -313,8 +303,6 @@ public class TabpromocaoService {
         headers.add("Authorization", "Basic " + authorization);
         return headers;
     }
-    
-    
 
     public Map<String, ?> load(Object id, String idName, List<String> fields) {
 

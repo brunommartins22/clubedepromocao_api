@@ -7,12 +7,10 @@ package br.com.interagese.promocao.controllers;
 
 import br.com.interagese.padrao.rest.util.IsServiceDefault;
 import br.com.interagese.padrao.rest.util.PadraoController;
-import br.com.interagese.promocao.service.ConfiguracaoService;
-import br.com.interagese.postgres.models.Configuracao;
-import java.util.List;
+import br.com.interagese.postgres.models.FilialScanntech;
+import br.com.interagese.promocao.service.FilialScanntechService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,12 +19,20 @@ import org.springframework.web.bind.annotation.RestController;
  * @author Bruno Martins
  */
 @RestController
-@RequestMapping(path = "api/configuracoes")
-public class ConfiguracaoController extends PadraoController<Configuracao> {
+@RequestMapping("api/filialscanntech")
+public class FilialSacanntechController extends PadraoController<FilialScanntech> {
 
     @IsServiceDefault
     @Autowired
-    public ConfiguracaoService service;
+    private FilialScanntechService service;
 
+    @GetMapping(path = "loadAllFilial")
+    public String loadAllFilial() {
+        try {
+            return serializar(service.loadAllFilial());
+        } catch (Exception ex) {
+            return returnException(ex);
+        }
+    }
 
 }
