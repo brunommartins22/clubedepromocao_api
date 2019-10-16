@@ -47,11 +47,12 @@ public class ScanntechRestClient {
                 return response;
 
             } catch (RestClientException e) {
-                if (!(e.getCause() instanceof SocketTimeoutException)) {
+
+                if (i >= configuracao.getListaUrl().size()) {
                     throw e;
                 }
 
-                if (i >= configuracao.getListaUrl().size()) {
+                if (!(e.getCause() instanceof SocketTimeoutException)) {
                     throw e;
                 }
 
@@ -75,25 +76,17 @@ public class ScanntechRestClient {
                 String usuario = configuracao.getUsuario();
                 String senha = configuracao.getSenha();
 
-                String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/"+ nrcaixa +"/movimientos";
+                String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/" + nrcaixa + "/movimientos";
 
                 RestTemplate restTemplate = new RestTemplate();
                 MultiValueMap<String, String> headers = createHeaders(usuario, senha);
-                
-                ObjectMapper mapper = new ObjectMapper();
-                try {
-                    String str = mapper.writeValueAsString(venda);
-                    System.out.println("Txt " + str);
-                } catch (JsonProcessingException ex) {
-                    Logger.getLogger(ScanntechRestClient.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                
+
                 ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(venda, headers), String.class);
 
                 return response;
 
             } catch (RestClientException e) {
-                if(e instanceof HttpClientErrorException){
+                if (e instanceof HttpClientErrorException) {
                     System.out.println("Causa: " + ((HttpClientErrorException) e).getResponseBodyAsString());
                 }
                 if (!(e.getCause() instanceof SocketTimeoutException)) {
@@ -111,8 +104,8 @@ public class ScanntechRestClient {
         return null;
 
     }
-    
-    public ResponseEntity<String> enviarFechamento(Configuracao configuracao, FechamentoPromocao fechamento, Integer idLocal, Integer nrcaixa) throws HttpClientErrorException{
+
+    public ResponseEntity<String> enviarFechamento(Configuracao configuracao, FechamentoPromocao fechamento, Integer idLocal, Integer nrcaixa) throws HttpClientErrorException {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
@@ -124,30 +117,28 @@ public class ScanntechRestClient {
                 String usuario = configuracao.getUsuario();
                 String senha = configuracao.getSenha();
 
-                String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/"+ nrcaixa +"/cierresDiarios";
+                String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/" + nrcaixa + "/cierresDiarios";
 
                 RestTemplate restTemplate = new RestTemplate();
                 MultiValueMap<String, String> headers = createHeaders(usuario, senha);
-                
+
                 ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(fechamento, headers), String.class);
 
                 return response;
 
             } catch (RestClientException e) {
-                
-                 if (i >= configuracao.getListaUrl().size()) {
-                    throw e;
-                }
-                
-                if(e instanceof HttpClientErrorException){
-                    throw e;
-                }
-                
-                if (!(e.getCause() instanceof SocketTimeoutException)) {
+
+                if (i >= configuracao.getListaUrl().size()) {
                     throw e;
                 }
 
-               
+                if (e instanceof HttpClientErrorException) {
+                    throw e;
+                }
+
+                if (!(e.getCause() instanceof SocketTimeoutException)) {
+                    throw e;
+                }
 
             }
 

@@ -130,7 +130,8 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
         }
 
         if (nrcaixa != null) {
-            hql.append(" AND (n.nrcaixa = :nrcaixa) ");
+            hql.append(" AND (n.nrcaixa = :nrcaixa) "
+                    + "AND (n.envioscanntech = 'E') ");
         }
 
         hql.append(" AND (n.codfil = :codfil ) ")

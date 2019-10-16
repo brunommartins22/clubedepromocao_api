@@ -40,10 +40,7 @@ public class NotasaiService {
     }
 
     @Transactional("integradoTransaction")
-    public void enviarVendas() throws Exception {
-
-        Date dataDaUltimaSincronizacao = scanntechsincService.getDataDaUltimaSincronizacaoDeVenda();
-        Date dataDaSincronizacaoAtual = new Date();
+    public void enviarVendas(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
 
         //Configuracao de teste
         Configuracao configuracao = new Configuracao();

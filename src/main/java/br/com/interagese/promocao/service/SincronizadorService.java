@@ -31,10 +31,6 @@ public class SincronizadorService {
 
     private ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
-    public SincronizadorService() {
-
-    }
-    
     public void iniciarTransmissao() {
         executorService.scheduleAtFixedRate(this::executarSincronizacao, 0, 5, TimeUnit.MINUTES);
     }
@@ -44,17 +40,18 @@ public class SincronizadorService {
             executando = true;
             try {
 
-//                Date dataDaSincronizacaoAtual = new Date();
-//                Date dataDoUltimoFechamento = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento();
-//                if (foiAMaisDe1DiasAtras(dataDoUltimoFechamento)) {
-//
-//                    //fechamentoPromocaoService.enviarFechamento(dataDoUltimoFechamento, dataDaSincronizacaoAtual);
-//
-//                }
-//                System.out.println("Teste: " + dataDoUltimoFechamento);
-                // notasaiService.enviarVendas();
+                Date dataDaSincronizacaoAtual = new Date();
+
                 tabpromocaoService.baixarPromocoes();
-                //System.out.println("Promoção baixadas");
+
+//                Date dataDaUltimaSincronizacaoDeVenda = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda();
+//                notasaiService.enviarVendas(dataDaUltimaSincronizacaoDeVenda, dataDaSincronizacaoAtual);
+//
+//                Date dataDoUltimoFechamento = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento();
+//                fechamentoPromocaoService.enviarFechamento(dataDoUltimoFechamento, dataDaSincronizacaoAtual);
+//
+//                tabpromocaoService.baixarPromocoes();
+                System.out.println("Sincronização finalizada: " + dataDaSincronizacaoAtual);
             } catch (Exception ex) {
                 ex.printStackTrace();
             } finally {
@@ -63,7 +60,7 @@ public class SincronizadorService {
         }
     }
 
-    private boolean foiAMaisDe1DiasAtras(Date dataDoUltimoFechamento) {
+    private boolean foiAMaisDe1DiasAtras(Date dataDoUltimoFechamento, Date dataDaSincronizacaoAtual) {
 
         return Period
                 .between(
