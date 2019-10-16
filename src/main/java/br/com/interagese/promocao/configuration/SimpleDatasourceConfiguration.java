@@ -20,6 +20,7 @@ import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.transaction.ChainedTransactionManager;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
@@ -90,15 +91,6 @@ public class SimpleDatasourceConfiguration {
                 .build();
 
     }
-
-    @Bean("integradoTransaction")
-    public PlatformTransactionManager stageTransactionManager(
-            EntityManagerFactory factory
-    ) {
-        JpaTransactionManager transactionManager = new JpaTransactionManager();
-        transactionManager.setEntityManagerFactory(factory);
-        return transactionManager;
-    }
     
     @Bean("integradoEntityManager")
     public LocalContainerEntityManagerFactoryBean integradoEntityManagerFactory(
@@ -111,8 +103,25 @@ public class SimpleDatasourceConfiguration {
                 .properties(firebirdProperties())
                 .build();
     }
+
+    @Bean("integradoTransaction")
+    public PlatformTransactionManager stageTransactionManager(
+            @Qualifier("integradoEntityManager") EntityManagerFactory factory
+    ) {
+        JpaTransactionManager transactionManager = new JpaTransactionManager();
+        transactionManager.setEntityManagerFactory(factory);
+        return transactionManager;
+    }
     
-    private Map<String, ?> firebirdProperties() {
+    @Bean("multiTransaction")
+    public ChainedTransactionManager chainedTransactionManager(
+            PlatformTransactionManager postgreTransaction,
+            @Qualifier("integradoTransaction") PlatformTransactionManager firebirdTransaction
+    ) {
+        return new ChainedTransactionManager(postgreTransaction, firebirdTransaction);
+    }
+    
+     private Map<String, ?> firebirdProperties() {
         Map<String, Object> map = new HashMap<>();
         map.put("hibernate.dialect", "org.hibernate.dialect.FirebirdDialect");
         return map;
