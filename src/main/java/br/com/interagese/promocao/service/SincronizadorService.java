@@ -4,8 +4,12 @@ import java.time.Instant;
 import java.time.Period;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -25,12 +29,17 @@ public class SincronizadorService {
     @Autowired
     private SincronizacaoService sincronizacaoService;
 
+    private ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+
     public SincronizadorService() {
 
     }
+    
+    public void iniciarTransmissao() {
+        executorService.scheduleAtFixedRate(this::executarSincronizacao, 0, 5, TimeUnit.MINUTES);
+    }
 
-    @Scheduled(initialDelay = 2000, fixedDelay = 999999999)
-    public void executarTransmissao() {
+    public void executarSincronizacao() {
         if (!executando) {
             executando = true;
             try {
@@ -44,7 +53,7 @@ public class SincronizadorService {
 //                }
 //                System.out.println("Teste: " + dataDoUltimoFechamento);
                 // notasaiService.enviarVendas();
-                //tabpromocaoService.baixarPromocoes();
+                tabpromocaoService.baixarPromocoes();
                 //System.out.println("Promoção baixadas");
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -63,6 +72,11 @@ public class SincronizadorService {
                         Instant.now().atZone(ZoneId.systemDefault()).toLocalDate())
                 .getDays() > 2;
 
+    }
+
+    @EventListener
+    public void onApplicationEvent(ContextRefreshedEvent e) {
+        iniciarTransmissao();
     }
 
 }

@@ -133,7 +133,7 @@ public class TabpromocaoService {
 
                         promocao.setSituacao(estado.getValorInterage());
                         create(promocao);
-
+                        promocoesInseridas++;
                     }
                 }
 
