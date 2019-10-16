@@ -1,5 +1,7 @@
 package br.com.interagese.promocao.service;
 
+import br.com.interagese.postgres.dtos.StatusSincronizadorDto;
+import br.com.interagese.promocao.enuns.Envio;
 import java.time.Instant;
 import java.time.Period;
 import java.time.ZoneId;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 public class SincronizadorService {
 
     private boolean executando = false;
+    private Envio envio = Envio.NADA;
 
     @Autowired
     private TabpromocaoService tabpromocaoService;
@@ -66,7 +69,8 @@ public class SincronizadorService {
                 .between(
                         Instant.ofEpochMilli(dataDoUltimoFechamento.getTime())
                                 .atZone(ZoneId.systemDefault()).toLocalDate(),
-                        Instant.now().atZone(ZoneId.systemDefault()).toLocalDate())
+                        Instant.ofEpochMilli(dataDaSincronizacaoAtual.getTime())
+                                .atZone(ZoneId.systemDefault()).toLocalDate())
                 .getDays() > 2;
 
     }
@@ -74,6 +78,10 @@ public class SincronizadorService {
     @EventListener
     public void onApplicationEvent(ContextRefreshedEvent e) {
         iniciarTransmissao();
+    }
+    
+    public StatusSincronizadorDto getStatus(){
+        return new StatusSincronizadorDto(executando, envio);
     }
 
 }
