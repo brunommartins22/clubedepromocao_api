@@ -53,7 +53,7 @@ public class SimpleDatasourceConfiguration {
                 .build();
     }
 
-    @Bean
+    @Bean(name ="entityManagerFactory")
     @Primary
     public LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource, JpaProperties jpaProperties) {
 

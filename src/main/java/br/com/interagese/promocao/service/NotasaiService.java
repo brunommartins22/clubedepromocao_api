@@ -6,19 +6,21 @@ import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FilialScanntech;
 import br.com.interagese.promocao.enuns.StatusEnvio;
 import br.com.interagese.promocao.util.ScanntechRestClient;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Resource;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
+import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 
 @Service
 public class NotasaiService {
@@ -26,22 +28,23 @@ public class NotasaiService {
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebird;
     @Autowired
-    private SincronizacaoService scanntechsincService;
-    @Autowired
     private ConfiguracaoService configuracaoService;
+    @Autowired
+    private LogService logService;
 
-    private final ObjectMapper mapper;
+    @Autowired
+    private NotasaiService $this;
+    
     private final ScanntechRestClient restClient;
-
+    
     public NotasaiService() {
-        mapper = new ObjectMapper();
         restClient = new ScanntechRestClient();
     }
 
-    @Transactional("integradoTransaction")
+    @Transactional(value = "integradoTransaction")
     public void enviarVendas(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
 
-        for (ConfiguracaoItem configuracao : configuracaoService.findById(((Integer)1).longValue()).getConfiguracaoItem()) {
+        for (ConfiguracaoItem configuracao : configuracaoService.findById(1L).getConfiguracaoItem()) {
             for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
                 int codfil = filialScanntech1.getCodigoFilial().intValue();
@@ -77,35 +80,46 @@ public class NotasaiService {
 
                         }
 
-                        ResponseEntity<String> response = restClient.enviarVenda(
-                                configuracao,
-                                venda,
-                                codscanntech,
-                                venda.getNrcaixa()
-                        );
+                        int statusCode = 0;
+                        String mensagem = "";
 
-                        if (response.getStatusCode() == HttpStatus.OK
-                                || response.getStatusCode() == HttpStatus.ALREADY_REPORTED) {
+                        try {
+                            ResponseEntity<String> response = restClient.enviarVenda(
+                                    configuracao,
+                                    venda,
+                                    codscanntech,
+                                    venda.getNrcaixa()
+                            );
+                            statusCode = response.getStatusCodeValue();
+                        } catch (HttpClientErrorException response) {
+                            statusCode = response.getRawStatusCode();
+                            mensagem = response.getResponseBodyAsString();
+                        }
+                        if (statusCode == 200
+                                || statusCode == 208) {
 
                             venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
+                            logService.logVenda(venda.getNrnotaf(), venda.getNrcaixa(), venda.getCodfil());
 
-                        } else if (response.getStatusCode() == HttpStatus.REQUEST_TIMEOUT
-                                || (response.getStatusCodeValue() >= 500 && response.getStatusCodeValue() <= 599)) {
+                        } else if (statusCode == 408
+                                || (statusCode >= 500 && statusCode <= 599)) {
 
-                            venda.setObsscanntech(response.getBody());
+                            venda.setObsscanntech(mensagem);
                             venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
+                            logService.logVendaComErro(venda.getNrnotaf(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
 
                         } else {
                             venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
+                            venda.setObsscanntech(mensagem);
+                            logService.logVendaComErro(venda.getNrnotaf(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
                         }
 
-                        update(venda);
+                        $this.update(venda);
 
                     }
 
                 }
 
-                scanntechsincService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
             }
         }
 
@@ -204,8 +218,9 @@ public class NotasaiService {
         return query.getResultList();
     }
 
-    private void update(Notasai notasai) {
-        emFirebird.merge(notasai);
+    @Transactional(value = "integradoTransaction", propagation = Propagation.REQUIRES_NEW)
+    public void update(Notasai notasai) {
+        emFirebird.unwrap(Session.class).update(notasai);
     }
 
 }
