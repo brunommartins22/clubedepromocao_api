@@ -54,9 +54,6 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
                     fechamento.setCodigoScanntech(Integer.valueOf(codscanntech).longValue());
 
-                    int statusCode = 0;
-                    String message = "";
-
                     try {
                         ResponseEntity<String> response = restClient.enviarFechamento(
                                 configuracao,
@@ -65,29 +62,28 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
                                 fechamento.getNumeroCaixa().intValue()
                         );
 
-                        statusCode = response.getStatusCodeValue();
-                        message = response.getBody();
+                        int statusCode = response.getStatusCodeValue();
+                        String message = response.getBody();
+
+                        if (statusCode == 200
+                                || statusCode == 208) {
+
+                            fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
+
+                        } else if (statusCode == 408
+                                || (statusCode >= 500 && statusCode <= 599)) {
+
+                            fechamento.setObsScanntech(message);
+                            fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
+
+                        } else {
+                            fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
+                        }
 
                     } catch (HttpClientErrorException e) {
 
-                        statusCode = e.getRawStatusCode();
-                        message = e.getResponseBodyAsString();
+                       throw e;
 
-                    }
-
-                    if (statusCode == 200
-                            || statusCode == 208) {
-
-                        fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
-
-                    } else if (statusCode == 408
-                            || (statusCode >= 500 && statusCode <= 599)) {
-
-                        fechamento.setObsScanntech(message);
-                        fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
-
-                    } else {
-                        fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
                     }
 
                     create(fechamento);

@@ -31,20 +31,19 @@ public class NotasaiService {
     private ConfiguracaoService configuracaoService;
     @Autowired
     private LogService logService;
-
     @Autowired
-    private NotasaiService $this;
-    
+    private NotasaiService self;
+
     private final ScanntechRestClient restClient;
-    
+
     public NotasaiService() {
         restClient = new ScanntechRestClient();
     }
 
     @Transactional(value = "integradoTransaction")
-    public void enviarVendas(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
+    public void enviarVendas(List<ConfiguracaoItem> configItens, Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
 
-        for (ConfiguracaoItem configuracao : configuracaoService.findById(1L).getConfiguracaoItem()) {
+        for (ConfiguracaoItem configuracao : configItens) {
             for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
                 int codfil = filialScanntech1.getCodigoFilial().intValue();
@@ -73,15 +72,14 @@ public class NotasaiService {
 
                     for (Notasai venda : vendasParaEnvio) {
 
+                        venda.setDescontoTotal(venda.getVldescnot());
+                        
                         for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
 
                             venda.setDescontoTotal(notasaiitens.getDesconto() + venda.getDescontoTotal());
                             venda.setAcrescimentoTotal(notasaiitens.getAcrescimo() + venda.getAcrescimentoTotal());
 
                         }
-
-                        int statusCode = 0;
-                        String mensagem = "";
 
                         try {
                             ResponseEntity<String> response = restClient.enviarVenda(
@@ -90,31 +88,38 @@ public class NotasaiService {
                                     codscanntech,
                                     venda.getNrcaixa()
                             );
-                            statusCode = response.getStatusCodeValue();
-                        } catch (HttpClientErrorException response) {
-                            statusCode = response.getRawStatusCode();
-                            mensagem = response.getResponseBodyAsString();
+                            
+                            int statusCode = response.getStatusCodeValue();
+                            String mensagem = "";
+
+                            if (statusCode == 200
+                                    || statusCode == 208) {
+
+                                venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
+                                self.update(venda);
+                                logService.logVenda(venda.getNrnotaf(), venda.getNrcaixa(), venda.getCodfil());
+
+                            } else if (statusCode == 408
+                                    || (statusCode >= 500 && statusCode <= 599)) {
+
+                                mensagem = response.getBody();
+                                
+                                venda.setObsscanntech(mensagem);
+                                venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
+                                self.update(venda);
+                                logService.logVendaComErro(venda.getNrnotaf(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
+
+                            } else {
+                                mensagem = response.getBody();
+                                venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
+                                venda.setObsscanntech(mensagem);
+                                self.update(venda);
+                                logService.logVendaComErro(venda.getNrnotaf(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
+                            }
+
+                        } catch (Exception e) {
+                            throw e;
                         }
-                        if (statusCode == 200
-                                || statusCode == 208) {
-
-                            venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
-                            logService.logVenda(venda.getNrnotaf(), venda.getNrcaixa(), venda.getCodfil());
-
-                        } else if (statusCode == 408
-                                || (statusCode >= 500 && statusCode <= 599)) {
-
-                            venda.setObsscanntech(mensagem);
-                            venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
-                            logService.logVendaComErro(venda.getNrnotaf(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
-
-                        } else {
-                            venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
-                            venda.setObsscanntech(mensagem);
-                            logService.logVendaComErro(venda.getNrnotaf(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
-                        }
-
-                        $this.update(venda);
 
                     }
 

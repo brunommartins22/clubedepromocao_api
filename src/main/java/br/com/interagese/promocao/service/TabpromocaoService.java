@@ -95,9 +95,9 @@ public class TabpromocaoService {
 
     }
 
-    private int baixarPromocoes(EstadoPromocao estado) throws Exception {
+    private int baixarPromocoes(List<ConfiguracaoItem> configuracoes, EstadoPromocao estado) throws Exception {
 
-        for (ConfiguracaoItem configuracao : configuracaoService.findById(1L).getConfiguracaoItem()) {
+        for (ConfiguracaoItem configuracao : configuracoes) {
             for (FilialScanntech filialScanntech : configuracao.getListaFilial()) {
 
                 ResponseEntity<JsonNode> response = scanntechRestClient.buscarPromocoes(configuracao, estado, filialScanntech.getCodigoScanntech().intValue());
@@ -139,13 +139,13 @@ public class TabpromocaoService {
     }
 
     @Transactional("multiTransaction")
-    public void baixarPromocoes() throws Exception {
+    public void baixarPromocoes(List<ConfiguracaoItem> configuracoes) throws Exception {
 
         int promocoesBaixadas = 0;
 
-        promocoesBaixadas += baixarPromocoes(EstadoPromocao.ACEITA);
-        promocoesBaixadas += baixarPromocoes(EstadoPromocao.PENDENTE);
-        promocoesBaixadas += baixarPromocoes(EstadoPromocao.REJEITADA);
+        promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.ACEITA);
+        promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.PENDENTE);
+        promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.REJEITADA);
 
         inserirSincronizacao(promocoesBaixadas);
     }
