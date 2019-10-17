@@ -45,7 +45,7 @@ public class SincronizadorService {
 
                 Date dataDaSincronizacaoAtual = new Date();
 
-                tabpromocaoService.baixarPromocoes();
+               // tabpromocaoService.baixarPromocoes();
 
 //                Date dataDaUltimaSincronizacaoDeVenda = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda();
 //                notasaiService.enviarVendas(dataDaUltimaSincronizacaoDeVenda, dataDaSincronizacaoAtual);

@@ -37,7 +37,7 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
     public void enviarFechamento(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
         //Configuracao de teste
       
-        for (ConfiguracaoItem configuracao : configuracaoService.findById(1).getConfiguracaoItem()) {
+        for (ConfiguracaoItem configuracao : configuracaoService.findById(((Integer)1).longValue()).getConfiguracaoItem()) {
             for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
                 int codfil = filialScanntech1.getCodigoFilial().intValue();

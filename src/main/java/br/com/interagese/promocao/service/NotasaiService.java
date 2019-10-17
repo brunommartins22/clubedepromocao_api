@@ -41,7 +41,7 @@ public class NotasaiService {
     @Transactional("integradoTransaction")
     public void enviarVendas(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
 
-        for (ConfiguracaoItem configuracao : configuracaoService.findById(1).getConfiguracaoItem()) {
+        for (ConfiguracaoItem configuracao : configuracaoService.findById(((Integer)1).longValue()).getConfiguracaoItem()) {
             for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
                 int codfil = filialScanntech1.getCodigoFilial().intValue();
