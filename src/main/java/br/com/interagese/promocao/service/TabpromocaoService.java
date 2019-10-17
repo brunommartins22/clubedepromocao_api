@@ -2,12 +2,9 @@ package br.com.interagese.promocao.service;
 
 import br.com.firebird.models.Tabpromocao;
 import br.com.firebird.models.Tabpromoitem;
-import br.com.interagese.padrao.rest.util.PadraoService;
-import br.com.interagese.postgres.models.Configuracao;
 import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FilialScanntech;
 import br.com.interagese.postgres.models.SincronizacaoPromocao;
-import br.com.interagese.postgres.models.Url;
 import br.com.interagese.promocao.enuns.EstadoPromocao;
 import br.com.interagese.promocao.util.ScanntechRestClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -48,6 +45,12 @@ public class TabpromocaoService {
     public TabpromocaoService() {
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         this.scanntechRestClient = new ScanntechRestClient();
+    }
+    
+    public List<Tabpromocao> findTabpromocaoByFilters() throws Exception{
+            TypedQuery<Tabpromocao> query = emFirebird.createQuery("SELECT t FROM Tabpromocao t",Tabpromocao.class);
+        
+        return query.getResultList();
     }
 
     public Tabpromocao create(Tabpromocao obj) throws Exception {
