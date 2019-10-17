@@ -97,7 +97,7 @@ public class TabpromocaoService {
 
     private int baixarPromocoes(EstadoPromocao estado) throws Exception {
 
-        for (ConfiguracaoItem configuracao : configuracaoService.findById(1).getConfiguracaoItem()) {
+        for (ConfiguracaoItem configuracao : configuracaoService.findById(1L).getConfiguracaoItem()) {
             for (FilialScanntech filialScanntech : configuracao.getListaFilial()) {
 
                 ResponseEntity<JsonNode> response = scanntechRestClient.buscarPromocoes(configuracao, estado, filialScanntech.getCodigoScanntech().intValue());

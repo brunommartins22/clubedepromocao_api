@@ -6,6 +6,7 @@ import br.com.interagese.postgres.models.FechamentoPromocao;
 import br.com.interagese.postgres.models.Url;
 import br.com.interagese.promocao.enuns.EstadoPromocao;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.SocketTimeoutException;
 import java.util.Base64;
 import org.springframework.http.HttpEntity;
@@ -58,7 +59,7 @@ public class ScanntechRestClient {
 
     }
 
-    public ResponseEntity<String> enviarVenda(ConfiguracaoItem configuracao, Notasai venda, Integer idLocal, Integer nrcaixa) {
+    public ResponseEntity<String> enviarVenda(ConfiguracaoItem configuracao, Notasai venda, Integer idLocal, Integer nrcaixa) throws HttpClientErrorException {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
@@ -74,6 +75,13 @@ public class ScanntechRestClient {
 
                 RestTemplate restTemplate = new RestTemplate();
                 MultiValueMap<String, String> headers = createHeaders(usuario, senha);
+                
+                try{
+                    System.out.println("Json: " + new ObjectMapper().writeValueAsString(venda));
+                }catch(Exception e){
+                    
+                }
+                
 
                 ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(venda, headers), String.class);
 
@@ -81,7 +89,7 @@ public class ScanntechRestClient {
 
             } catch (RestClientException e) {
                 if (e instanceof HttpClientErrorException) {
-                    System.out.println("Causa: " + ((HttpClientErrorException) e).getResponseBodyAsString());
+                    throw e;
                 }
                 if (!(e.getCause() instanceof SocketTimeoutException)) {
                     throw e;

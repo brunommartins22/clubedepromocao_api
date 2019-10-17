@@ -6,13 +6,14 @@
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
                 SELECT
-                count(*) FROM sincronizacao_fechamento
+                count(*) FROM clubedepromocao.sincronizacao_fechamento
             </sqlCheck>
         </preConditions>
         <sql splitStatements="true">
-            INSERT INTO sincronizacao_fechamento
+            INSERT INTO clubedepromocao.sincronizacao_fechamento
             (id, data)
-            (select nextvalue('seq_sincronizacao_fechamento'), now());
+            VALUES
+            (nextval('clubedepromocao.seq_sincronizacao_fechamento'), now());
         </sql> 
     </changeSet>
     
@@ -20,13 +21,14 @@
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
                 SELECT
-                count(*) FROM configuracao
+                count(*) FROM clubedepromocao.configuracao
             </sqlCheck>
         </preConditions>
         <sql splitStatements="true">
-            INSERT INTO configuracao
+            INSERT INTO clubedepromocao.configuracao
             (id, intervalo_sincronizacao)
-            (select nextvalue('seq_configuracao'), 15);
+            VALUES
+            (1, 15);
         </sql> 
     </changeSet>
 

@@ -36,7 +36,7 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
     public void enviarFechamento(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
         //Configuracao de teste
-      
+
         for (ConfiguracaoItem configuracao : configuracaoService.findById(1).getConfiguracaoItem()) {
             for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
@@ -140,15 +140,15 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
         List<Object[]> results = query.getResultList();
 
         return results.stream()
-                .map((result) -> {
+                .map((r) -> {
                     return new FechamentoPromocao(
-                            (Number) result[0], //codfil
-                            (Number) result[1], //nrcaixa
-                            (Date) result[2], //dtfechamento
-                            (Number) result[3], //valor total de vendas
-                            (Number) result[4], //quantidade de vendas
-                            (Number) result[5], //valor total de cancelamentos
-                            (Number) result[6] //quantiade de cancelamento
+                            (Number) r[0], //codfil
+                            (Number) r[1], //nrcaixa
+                            (Date) r[2], //dtfechamento
+                            (Number) r[3], //valor total de vendas
+                            (Number) r[4], //quantidade de vendas
+                            (Number) r[5], //valor total de cancelamentos
+                            (Number) r[6] //quantiade de cancelamento
                     );
                 })
                 .collect(toList());
