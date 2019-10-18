@@ -31,7 +31,7 @@ public class SincronizacaoService {
     
     public Date getDataDaUltimaSincronizacaoDeFechamento() {
 
-        String hql = "SELECT s.data FROM SincronizacaoFechamento s WHERE s.codigo = (SELECT MAX(s.codigo) FROM SincronizacaoFechamento s) ";
+        String hql = "SELECT s.data FROM SincronizacaoFechamento s WHERE s.id = (SELECT MAX(s.id) FROM SincronizacaoFechamento s) ";
 
         try {
 

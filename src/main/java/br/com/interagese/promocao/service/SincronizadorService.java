@@ -1,60 +1,81 @@
 package br.com.interagese.promocao.service;
 
 import br.com.interagese.postgres.dtos.StatusSincronizadorDto;
+import br.com.interagese.postgres.models.Configuracao;
+import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.promocao.enuns.Envio;
 import java.time.Instant;
 import java.time.Period;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
+import org.springframework.scheduling.TriggerContext;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SincronizadorService {
 
-    private boolean executando = false;
-    private Envio envio = Envio.NADA;
-
     @Autowired
     private TabpromocaoService tabpromocaoService;
-
     @Autowired
     private NotasaiService notasaiService;
-
     @Autowired
     private FechamentoPromocaoService fechamentoPromocaoService;
-
+    @Autowired
+    private ConfiguracaoService configuracaoService;
     @Autowired
     private SincronizacaoService sincronizacaoService;
+    @Autowired
+    private ThreadPoolTaskScheduler taskScheduler;
 
-    private ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    private boolean executando = false;
+    private Envio envio = Envio.NADA;
+    private ScheduledFuture sincronizacaoAtual;
 
     public void iniciarTransmissao() {
-        executorService.scheduleAtFixedRate(this::executarSincronizacao, 0, 5, TimeUnit.MINUTES);
+
+        finalizarSincronizacao();
+
+        Integer intervalo = configuracaoService.getIntervalo();
+        if (intervalo != null) {
+            sincronizacaoAtual = taskScheduler.scheduleAtFixedRate(this::executarSincronizacao, intervalo * (60000));
+        }
+
     }
 
-    public void executarSincronizacao() {
+    private void executarSincronizacao() {
         if (!executando) {
             executando = true;
             try {
-
                 Date dataDaSincronizacaoAtual = new Date();
-
-                //tabpromocaoService.baixarPromocoes();
-
+                System.out.println("Executando: " + dataDaSincronizacaoAtual);
+                Configuracao configuracao = configuracaoService.findById(1L);
+                List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
+//                
+//                tabpromocaoService.baixarPromocoes(configuracaoItems);
 //                Date dataDaUltimaSincronizacaoDeVenda = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda();
-//                notasaiService.enviarVendas(dataDaUltimaSincronizacaoDeVenda, dataDaSincronizacaoAtual);
+//                notasaiService.enviarVendas(configuracaoItems, dataDaUltimaSincronizacaoDeVenda, dataDaSincronizacaoAtual);
+//                sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
 //
 //                Date dataDoUltimoFechamento = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento();
-//                fechamentoPromocaoService.enviarFechamento(dataDoUltimoFechamento, dataDaSincronizacaoAtual);
+//                fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDoUltimoFechamento, dataDaSincronizacaoAtual);
 //
 //                tabpromocaoService.baixarPromocoes();
-                System.out.println("Sincronização finalizada: " + dataDaSincronizacaoAtual);
+                //       System.out.println("Sincronização finalizada: " + dataDaSincronizacaoAtual);
             } catch (Exception ex) {
                 ex.printStackTrace();
             } finally {
@@ -79,8 +100,24 @@ public class SincronizadorService {
     public void onApplicationEvent(ContextRefreshedEvent e) {
         iniciarTransmissao();
     }
-    
-    public StatusSincronizadorDto getStatus(){
+
+    public void finalizarSincronizacao() {
+        if (sincronizacaoAtual != null) {
+            sincronizacaoAtual.cancel(false);
+            sincronizacaoAtual = null;
+        }
+    }
+
+    @Bean
+    public ThreadPoolTaskScheduler threadPoolTaskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1);
+        scheduler.setWaitForTasksToCompleteOnShutdown(false);
+        scheduler.setRemoveOnCancelPolicy(true);
+        return scheduler;
+    }
+
+    public StatusSincronizadorDto getStatus() {
         return new StatusSincronizadorDto(executando, envio);
     }
 

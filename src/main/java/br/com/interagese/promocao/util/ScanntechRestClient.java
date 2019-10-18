@@ -5,20 +5,38 @@ import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FechamentoPromocao;
 import br.com.interagese.postgres.models.Url;
 import br.com.interagese.promocao.enuns.EstadoPromocao;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-public class ScanntechRestClient {
+public class ScanntechRestClient extends DefaultResponseErrorHandler {
+
+    private final RestTemplate restTemplate;
+    private final ObjectMapper mapper;
+    
+    public ScanntechRestClient() {
+        restTemplate = new RestTemplate();
+        restTemplate.setErrorHandler(this);
+        restTemplate.getMessageConverters().add(0, new StringHttpMessageConverter(StandardCharsets.UTF_8));
+        mapper = new ObjectMapper();
+    }
 
     public ResponseEntity<JsonNode> buscarPromocoes(ConfiguracaoItem configuracao, EstadoPromocao estado, Integer idLocal) {
 
@@ -34,7 +52,6 @@ public class ScanntechRestClient {
 
                 String endPoint = urlBase + "/pmkt-rest-api/minoristas/" + idEmpresa + "/locales/" + idLocal + "/promocionesConLimitePorTicket?estado=" + estado.getValorScanntech();
 
-                RestTemplate restTemplate = new RestTemplate();
                 MultiValueMap<String, String> headers = createHeaders(usuario, senha);
 
                 ResponseEntity<JsonNode> response = restTemplate.exchange(endPoint, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class);
@@ -63,6 +80,8 @@ public class ScanntechRestClient {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
+            int tentativas = 1;
+            
             Url url = configuracao.getListaUrl().get(i);
 
             try {
@@ -73,24 +92,25 @@ public class ScanntechRestClient {
 
                 String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/" + nrcaixa + "/movimientos";
 
-                RestTemplate restTemplate = new RestTemplate();
                 MultiValueMap<String, String> headers = createHeaders(usuario, senha);
                 
-                try{
-                    System.out.println("Json: " + new ObjectMapper().writeValueAsString(venda));
-                }catch(Exception e){
-                    
+                String json = "";
+                try {
+                    json = mapper.writeValueAsString(venda);
+                    System.out.println("Json: " + json);
+                } catch (JsonProcessingException ex) {
+                    Logger.getLogger(ScanntechRestClient.class.getName()).log(Level.SEVERE, null, ex);
                 }
+
+                ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(json, headers), String.class);
                 
-
-                ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(venda, headers), String.class);
-
+                System.out.println("Status Code: " + response.getStatusCode());
+                System.out.println("Body: " + response.getBody());
+                
                 return response;
 
             } catch (RestClientException e) {
-                if (e instanceof HttpClientErrorException) {
-                    throw e;
-                }
+                
                 if (!(e.getCause() instanceof SocketTimeoutException)) {
                     throw e;
                 }
@@ -98,6 +118,7 @@ public class ScanntechRestClient {
                 if (i >= configuracao.getListaUrl().size()) {
                     throw e;
                 }
+                
 
             }
 
@@ -121,7 +142,6 @@ public class ScanntechRestClient {
 
                 String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/" + nrcaixa + "/cierresDiarios";
 
-                RestTemplate restTemplate = new RestTemplate();
                 MultiValueMap<String, String> headers = createHeaders(usuario, senha);
 
                 ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(fechamento, headers), String.class);
@@ -129,16 +149,12 @@ public class ScanntechRestClient {
                 return response;
 
             } catch (RestClientException e) {
+                        
+                if (!(e.getCause() instanceof SocketTimeoutException)) {
+                    throw e;
+                }
 
                 if (i >= configuracao.getListaUrl().size()) {
-                    throw e;
-                }
-
-                if (e instanceof HttpClientErrorException) {
-                    throw e;
-                }
-
-                if (!(e.getCause() instanceof SocketTimeoutException)) {
                     throw e;
                 }
 
@@ -157,6 +173,11 @@ public class ScanntechRestClient {
         headers.add("Authorization", "Basic " + authorization);
         headers.add("Content-Type", "application/json");
         return headers;
+    }
+
+    @Override
+    public boolean hasError(ClientHttpResponse response) throws IOException {
+        return !(response.getRawStatusCode() >= 200 && response.getRawStatusCode() <= 599);
     }
 
 }
