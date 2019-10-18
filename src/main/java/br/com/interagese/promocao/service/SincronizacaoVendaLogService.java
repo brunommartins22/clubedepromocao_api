@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import javax.persistence.TypedQuery;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -21,32 +22,35 @@ import org.springframework.util.StringUtils;
  */
 @Service
 public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVendaLog> {
-
-    public List<SincronizacaoVendaLog> loadSearchFilters(Map map) throws Exception{
+    
+    @Autowired
+    private FilialScanntechService filialScanntechService;
+    
+    public List<SincronizacaoVendaLog> loadSearchFilters(Map map) throws Exception {
         Long codigoFilial = (Long) map.get("codigoFilial");
         Integer numeroCaixa = (Integer) map.get("numeroCaixa");
         String numeroCupom = (String) map.get("numeroCupom");
         String situacao = (String) map.get("situacao");
         List<Date> datasEnvio = (List<Date>) map.get("datasEnvio");
-
+        
         String sql = "SELECT o FROM SincronizacaoVendaLog o where o.id is not null";
-
+        
         if (codigoFilial != null) {
             sql += " and o.codigoFilial=" + codigoFilial;
         }
-
+        
         if (numeroCaixa != null) {
             sql += " and o.numeroCaixa=" + numeroCaixa;
         }
-
+        
         if (!StringUtils.isEmpty(numeroCupom)) {
             sql += " and o.numeroCupom = '" + numeroCupom + "'";
         }
-
+        
         if (!StringUtils.isEmpty(situacao)) {
             sql += " and o.situacao = '" + situacao + "'";
         }
-
+        
         if (!datasEnvio.isEmpty()) {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
             if (datasEnvio.size() > 1) {
@@ -56,9 +60,12 @@ public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVen
             }
         }
         
+        TypedQuery<SincronizacaoVendaLog> result = em.createQuery(sql, SincronizacaoVendaLog.class);
         
-        TypedQuery<SincronizacaoVendaLog> result = em.createQuery(sql,SincronizacaoVendaLog.class);
-        
+        for (SincronizacaoVendaLog o : result.getResultList()) {
+            o.setFilial(o.getCodigoFilial() + " - " + filialScanntechService.loadNameFilialByCodigoFilial(o.getCodigoFilial().longValue()));
+            o.setSituacaoDesc(o.validarSituacao());
+        }
         
         return result.getResultList();
     }
