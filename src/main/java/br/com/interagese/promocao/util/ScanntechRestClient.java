@@ -152,7 +152,9 @@ public class ScanntechRestClient extends DefaultResponseErrorHandler {
                         
                 if (!(e.getCause() instanceof SocketTimeoutException)) {
                     throw e;
-                } else if (i >= configuracao.getListaUrl().size() && e instanceof HttpClientErrorException) {
+                }
+
+                if (i >= configuracao.getListaUrl().size()) {
                     throw e;
                 }
 

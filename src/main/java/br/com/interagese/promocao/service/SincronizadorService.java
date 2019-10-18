@@ -63,8 +63,8 @@ public class SincronizadorService {
             try {
                 Date dataDaSincronizacaoAtual = new Date();
                 System.out.println("Executando: " + dataDaSincronizacaoAtual);
-//                Configuracao configuracao = configuracaoService.findById(1L);
-//                List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
+                Configuracao configuracao = configuracaoService.findById(1L);
+                List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
 //                
 //                tabpromocaoService.baixarPromocoes(configuracaoItems);
 //                Date dataDaUltimaSincronizacaoDeVenda = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda();
@@ -72,7 +72,7 @@ public class SincronizadorService {
 //                sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
 //
 //                Date dataDoUltimoFechamento = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento();
-//                fechamentoPromocaoService.enviarFechamento(dataDoUltimoFechamento, dataDaSincronizacaoAtual);
+//                fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDoUltimoFechamento, dataDaSincronizacaoAtual);
 //
 //                tabpromocaoService.baixarPromocoes();
                 //       System.out.println("Sincronização finalizada: " + dataDaSincronizacaoAtual);

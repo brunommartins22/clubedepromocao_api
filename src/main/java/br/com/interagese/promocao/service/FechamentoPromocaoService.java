@@ -23,8 +23,6 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebird;
-    @Autowired
-    private ConfiguracaoService configuracaoService;
 
     private final ScanntechRestClient restClient;
     private final SimpleDateFormat dbDateFormat;
@@ -34,10 +32,10 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
         dbDateFormat = new SimpleDateFormat("yyyy-MM-dd");
     }
 
-    public void enviarFechamento(Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
+    public void enviarFechamento(List<ConfiguracaoItem> configuracaoItems, Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
         //Configuracao de teste
 
-        for (ConfiguracaoItem configuracao : configuracaoService.findById(1).getConfiguracaoItem()) {
+        for (ConfiguracaoItem configuracao : configuracaoItems) {
             for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
                 int codfil = filialScanntech1.getCodigoFilial().intValue();
@@ -100,9 +98,9 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
                 + "    codfil as codfil, "
                 + "    nrcaixa as nrcaixa, "
                 + "    dtemissao as data_fechamento, "
-                + "    sum(case when n.situacao in ('N', 'E') then n.totnota else 0 end) as valor_total_vendas, "
+                + "    sum(case when n.situacao in ('N', 'E') then n.totgeral else 0 end) as valor_total_vendas, "
                 + "    sum(case when n.situacao in ('N', 'E') then 1 else 0 end) as quantidade_vendas, "
-                + "    sum(case when n.situacao in ('C', 'A') then n.totnota else 0 end) as valor_total_cancelamentos, "
+                + "    sum(case when n.situacao in ('C', 'A') then n.totgeral else 0 end) as valor_total_cancelamentos, "
                 + "    sum(case when n.situacao in ('C', 'A') then 1 else 0 end) as quantidade_cancelamentos "
                 + "        from "
                 + "    notasai n "
@@ -112,7 +110,7 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
             hql.append(" n.dtemissao = '").append(dbDateFormat.format(dataInicio)).append("' ");
         } else {
             hql.append(" (n.dtemissao >= '").append(dbDateFormat.format(dataInicio))
-                    .append("' AND n.dtemissao < '").append(dbDateFormat.format(dataFim)).append("' ");
+                    .append("' AND n.dtemissao < '").append(dbDateFormat.format(dataFim)).append("') ");
         }
 
         if (nrcaixa != null) {
