@@ -22,51 +22,73 @@ import org.springframework.util.StringUtils;
  */
 @Service
 public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVendaLog> {
-    
+
     @Autowired
     private FilialScanntechService filialScanntechService;
-    
+
     public List<SincronizacaoVendaLog> loadSearchFilters(Map map) throws Exception {
-        Long codigoFilial = (Long) map.get("codigoFilial");
-        Integer numeroCaixa = (Integer) map.get("numeroCaixa");
+        Integer codigoFilial = (Integer) map.get("codigoFilial");
+        String numeroCaixa = (String) map.get("numeroCaixa");
         String numeroCupom = (String) map.get("numeroCupom");
         String situacao = (String) map.get("situacao");
-        List<Date> datasEnvio = (List<Date>) map.get("datasEnvio");
-        
+        List<String> datasEnvio = (List<String>) map.get("datasEnvio");
+
         String sql = "SELECT o FROM SincronizacaoVendaLog o where o.id is not null";
-        
+
         if (codigoFilial != null) {
-            sql += " and o.codigoFilial=" + codigoFilial;
+            sql += " and o.codigoFilial =" + codigoFilial;
         }
-        
+
         if (numeroCaixa != null) {
-            sql += " and o.numeroCaixa=" + numeroCaixa;
+            sql += " and o.numeroCaixa =" + numeroCaixa;
         }
-        
+
         if (!StringUtils.isEmpty(numeroCupom)) {
             sql += " and o.numeroCupom = '" + numeroCupom + "'";
         }
-        
+
         if (!StringUtils.isEmpty(situacao)) {
             sql += " and o.situacao = '" + situacao + "'";
         }
-        
+
         if (!datasEnvio.isEmpty()) {
+//            2019-10-14T03:00:00.000Z
+            SimpleDateFormat dateFormatDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-            if (datasEnvio.size() > 1) {
-                sql += " and o.dataEnvio between '" + dateFormat.format(datasEnvio.get(0)) + "' and '" + dateFormat.format(datasEnvio.get(1)) + "'";
+
+            String date1 = datasEnvio.get(0);
+            String date2 = datasEnvio.get(1);
+
+            if (dateFormatDate.parse(date1).after(new Date())) {
+                addErro("Data inicial não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
+            }
+
+            if (date1 != null && date2 != null) {
+
+                if (dateFormatDate.parse(date2).after(new Date())) {
+                    addErro("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
+                }
+
+                sql += " and o.dataEnvio between '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
+
             } else {
-                sql += " and o.dataEnvio='" + dateFormat.format(datasEnvio.get(0)) + "'";
+
+                sql += " and o.dataEnvio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
+
             }
         }
-        
-        TypedQuery<SincronizacaoVendaLog> result = em.createQuery(sql, SincronizacaoVendaLog.class);
-        
-        for (SincronizacaoVendaLog o : result.getResultList()) {
-            o.setFilial(o.getCodigoFilial() + " - " + filialScanntechService.loadNameFilialByCodigoFilial(o.getCodigoFilial().longValue()));
-            o.setSituacaoDesc(o.validarSituacao());
+
+        TypedQuery<SincronizacaoVendaLog> result = em.createQuery(sql + " order by o.situacao asc", SincronizacaoVendaLog.class);
+
+        if (result.getResultList() != null && !result.getResultList().isEmpty()) {
+            for (SincronizacaoVendaLog o : result.getResultList()) {
+                o.setFilial(o.getCodigoFilial() + " - " + filialScanntechService.loadNameFilialByCodigoFilial(o.getCodigoFilial().longValue()));
+                o.setSituacaoDesc(o.getValidarSitucao());
+            }
+        } else {
+            addErro("Nenhum registro encontrado na base de dados.");
         }
-        
+
         return result.getResultList();
     }
 }
