@@ -2,6 +2,7 @@ package br.com.interagese.promocao.service;
 
 import br.com.firebird.models.Tabpromocao;
 import br.com.firebird.models.Tabpromoitem;
+import br.com.interagese.padrao.rest.util.TransformNativeQuery;
 import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FilialScanntech;
 import br.com.interagese.postgres.models.SincronizacaoPromocao;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 
 @Service
 public class TabpromocaoService {
@@ -35,6 +37,8 @@ public class TabpromocaoService {
     private EntityManager emFirebird;
     @Autowired
     private ConfiguracaoService configuracaoService;
+    @Autowired
+    private TabpromoItemService tabpromoItemService;
 
     @PersistenceContext(unitName = "default")
     private EntityManager em;
@@ -46,11 +50,86 @@ public class TabpromocaoService {
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         this.scanntechRestClient = new ScanntechRestClient();
     }
-    
-    public List<Tabpromocao> findTabpromocaoByFilters() throws Exception{
-            TypedQuery<Tabpromocao> query = emFirebird.createQuery("SELECT t FROM Tabpromocao t",Tabpromocao.class);
-        
-        return query.getResultList();
+
+    @Transactional("integradoTransaction")
+    public List<Tabpromocao> findTabpromocaoByFilters(Map map) throws Exception {
+
+        Integer codigoFilial = (Integer) map.get("codigoFilial");
+        Integer tipo = (Integer) map.get("tipo");
+        String situacao = (String) map.get("situacao");
+        String tituloPromocao = (String) map.get("tituloPromocao");
+        String autorPromocao = (String) map.get("autorPromocao");
+        List<String> datasValidade = (List<String>) map.get("validade");
+
+        if (codigoFilial == null) {
+            throw new Exception("Filial não informada.");
+        }
+
+        String sql = "select tp.* from tabpromocao tp "
+                + "join tabpromocaofilial tpf on tpf.codpromocao = tp.codpromocao "
+                + "where tpf.codfil = " + codigoFilial;
+
+        if (tipo != null) {
+            sql += " and tp.tipo = " + tipo;
+        }
+
+        if (!StringUtils.isEmpty(situacao)) {
+            sql += " and tp.situacao ='" + situacao + "'";
+        }
+
+        if (!StringUtils.isEmpty(tituloPromocao)) {
+            sql += " and tp.titulo like '%" + tituloPromocao + "%'";
+        }
+
+        if (!StringUtils.isEmpty(autorPromocao)) {
+            sql += " and tp.autor like '%" + autorPromocao + "%'";
+        }
+
+        if (!datasValidade.isEmpty()) {
+            SimpleDateFormat dateFormatDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+            String date1 = datasValidade.get(0);
+            String date2 = datasValidade.get(1);
+
+            if (dateFormatDate.parse(date1).after(new Date())) {
+                throw new Exception("Data inicial não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
+            }
+
+            if (date1 != null && date2 != null) {
+
+                if (dateFormatDate.parse(date2).after(new Date())) {
+                    throw new Exception("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
+                }
+
+                sql += " and tp.datainicio >= '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and tp.datafim <= '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
+
+            } else {
+
+                sql += " and tp.datainicio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
+
+            }
+        }
+
+        TypedQuery<Tabpromocao> result = (TypedQuery<Tabpromocao>) emFirebird.createNativeQuery(sql,Tabpromocao.class);
+
+        for (Tabpromocao tabpromocao : result.getResultList()) {
+
+            List<Tabpromoitem> itens = tabpromoItemService.findTabpromoitemByCodigopromocao(tabpromocao.getCodpromocao());
+
+            for (Tabpromoitem item : itens) {
+                if (item.getTipo().equals("I")) {
+                    tabpromocao.getItemList().add(item);
+                } else {
+                    tabpromocao.getBeneficioList().add(item);
+                }
+            }
+            
+            tabpromocao.setTipoDesc(tabpromocao.getValidarTipo());
+
+        }
+
+        return result.getResultList();
     }
 
     public Tabpromocao create(Tabpromocao obj) throws Exception {

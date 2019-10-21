@@ -41,4 +41,12 @@ public class FilialScanntechService extends PadraoService<FilialScanntech> {
 
     }
 
+    public String loadNameFilialByCodigoFilial(Long codigoFilial) {
+        String name = "";
+
+        name = em.createQuery("SELECT o.nomeFilial FROM FilialScanntech o where o.codigoFilial = " + codigoFilial, String.class).getSingleResult();
+
+        return name;
+    }
+
 }
