@@ -12,6 +12,7 @@ import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  *
@@ -22,9 +23,6 @@ public class ConfiguracaoService extends PadraoService<Configuracao> {
 
     @Autowired
     private FilialScanntechService service;
-
-    @PersistenceContext(unitName = "integradoPU")
-    private EntityManager emFirebirb;
 
     public Integer getIntervalo() {
 
@@ -37,5 +35,5 @@ public class ConfiguracaoService extends PadraoService<Configuracao> {
         }
 
     }
-
+     
 }

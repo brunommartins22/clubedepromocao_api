@@ -9,20 +9,11 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.task.TaskExecutor;
-import org.springframework.scheduling.TaskScheduler;
-import org.springframework.scheduling.Trigger;
-import org.springframework.scheduling.TriggerContext;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 
@@ -57,28 +48,34 @@ public class SincronizadorService {
 
     }
 
-    private void executarSincronizacao() {
+    public void executarSincronizacao() {
         if (!executando) {
             executando = true;
             try {
                 Date dataDaSincronizacaoAtual = new Date();
                 System.out.println("Executando: " + dataDaSincronizacaoAtual);
-                Configuracao configuracao = configuracaoService.findById(1L);
-                List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
-//                
+//                Configuracao configuracao = configuracaoService.findById(1L);
+//                List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
+////              
+//                envio = Envio.PROMOCAO;
 //                tabpromocaoService.baixarPromocoes(configuracaoItems);
+//                
+//                envio = Envio.VENDA;
 //                Date dataDaUltimaSincronizacaoDeVenda = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda();
 //                notasaiService.enviarVendas(configuracaoItems, dataDaUltimaSincronizacaoDeVenda, dataDaSincronizacaoAtual);
 //                sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
 //
+//                envio = Envio.FECHAMENTO;
 //                Date dataDoUltimoFechamento = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento();
 //                fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDoUltimoFechamento, dataDaSincronizacaoAtual);
+//                sincronizacaoService.insertSincronizacaoFechamento(dataDaSincronizacaoAtual);
 //
 //                tabpromocaoService.baixarPromocoes();
                 //       System.out.println("Sincronização finalizada: " + dataDaSincronizacaoAtual);
             } catch (Exception ex) {
                 ex.printStackTrace();
             } finally {
+                envio = Envio.NADA;
                 executando = false;
             }
         }

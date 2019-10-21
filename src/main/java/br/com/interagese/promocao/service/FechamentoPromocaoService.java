@@ -77,6 +77,8 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
                         } else {
                             fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
                         }
+                        
+                        fechamento.setDataEnvio(new Date());
 
                     } catch (HttpClientErrorException e) {
 

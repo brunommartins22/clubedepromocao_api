@@ -14,10 +14,11 @@ public class LogService {
     private EntityManager em;
 
     @Transactional
-    public void logVenda(String nrcupom, Integer numeroCaixa, Integer codigoFilial) {
+    public void logVenda(String nrcupom, String nrcontr, Integer numeroCaixa, Integer codigoFilial) {
 
         SincronizacaoVendaLog log = new SincronizacaoVendaLog();
         log.setNumeroCupom(nrcupom);
+        log.setNrcontr(nrcontr);
         log.setSituacao("E");
         log.setNumeroCaixa(numeroCaixa);
         log.setCodigoFilial(codigoFilial);
@@ -28,10 +29,11 @@ public class LogService {
     }
 
     @Transactional
-    public void logVendaComErro(String nrcupom, String erro, Integer numeroCaixa, Integer codigoFilial) {
+    public void logVendaComErro(String nrcupom, String nrcontr, String erro, Integer numeroCaixa, Integer codigoFilial) {
 
         SincronizacaoVendaLog log = new SincronizacaoVendaLog();
         log.setNumeroCupom(nrcupom);
+        log.setNrcontr(nrcontr);
         log.setSituacao("R");
         log.setDataEnvio(new Date());
         log.setNumeroCaixa(numeroCaixa);

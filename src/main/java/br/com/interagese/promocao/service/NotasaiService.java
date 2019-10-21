@@ -28,8 +28,6 @@ public class NotasaiService {
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebird;
     @Autowired
-    private ConfiguracaoService configuracaoService;
-    @Autowired
     private LogService logService;
     @Autowired
     private NotasaiService self;
@@ -97,7 +95,7 @@ public class NotasaiService {
 
                                 venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
                                 self.update(venda);
-                                logService.logVenda(venda.getNrnotaf(), venda.getNrcaixa(), venda.getCodfil());
+                                logService.logVenda(venda.getNumeroCupom(), venda.getNrcontr(), venda.getNrcaixa(), venda.getCodfil());
 
                             } else if (statusCode == 408
                                     || (statusCode >= 500 && statusCode <= 599)) {
@@ -107,14 +105,14 @@ public class NotasaiService {
                                 venda.setObsscanntech(mensagem);
                                 venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
                                 self.update(venda);
-                                logService.logVendaComErro(venda.getNrnotaf(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
+                                logService.logVendaComErro(venda.getNumeroCupom(), venda.getNrcontr(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
 
                             } else {
                                 mensagem = response.getBody();
                                 venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
                                 venda.setObsscanntech(mensagem);
                                 self.update(venda);
-                                logService.logVendaComErro(venda.getNrnotaf(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
+                                logService.logVendaComErro(venda.getNumeroCupom(), venda.getNrcontr(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
                             }
 
                         } catch (Exception e) {
@@ -139,8 +137,8 @@ public class NotasaiService {
                 + "(n.codfil = :codfil) "
                 + "AND (((n.dthrlanc BETWEEN :inicio AND :fim) "
                 + "AND (n.envioscanntech IS NULL) "
-                + "AND (n.situacao IN ('N', 'E'))"
-                + "AND (n.nrnotaf IS NOT NULL AND n.nrnotaf <> ''))"
+                + "AND (n.situacao IN ('N', 'E')) "
+                + "AND (n.envioscanntech IS NULL)) "
                 + "OR (n.envioscanntech = 'P'))";
 
         TypedQuery<Number> query = emFirebird.createQuery(hql, Number.class)
@@ -161,16 +159,16 @@ public class NotasaiService {
                 + "(n.codfil = :codfil) "
                 + "AND (((n.dthrlanc BETWEEN :inicio AND :fim) "
                 + "AND (n.envioscanntech IS NULL) "
-                + "AND (n.situacao IN ('N', 'E'))"
-                + "AND (n.nrnotaf IS NOT NULL AND n.nrnotaf <> ''))"
-                + "OR (n.envioscanntech = 'P'))";
+                + "AND (n.situacao IN ('N', 'E')) "
+                + "AND (n.envioscanntech IS NULL))) "
+                + "ORDER BY n.dthrlanc ";
 
         TypedQuery<Notasai> query = emFirebird.createQuery(hql, Notasai.class);
         query.setParameter("codfil", codfil);
         query.setParameter("inicio", dataInicio);
         query.setParameter("fim", dataFim);
 
-        query.setFirstResult(inicio);
+        //query.setFirstResult(inicio);
         query.setMaxResults(tamanhoDaPagina);
 
         List<Notasai> notasaiList = query.getResultList();

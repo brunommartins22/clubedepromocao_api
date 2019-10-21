@@ -1,5 +1,6 @@
 package br.com.interagese.promocao.service;
 
+import br.com.interagese.postgres.models.SincronizacaoFechamento;
 import br.com.interagese.postgres.models.SincronizacaoVenda;
 import java.util.Date;
 import javax.persistence.EntityManager;
@@ -47,6 +48,12 @@ public class SincronizacaoService {
         SincronizacaoVenda scanntechsinc = new SincronizacaoVenda();
         scanntechsinc.setData(data);
         em.persist(scanntechsinc);
+    }
+    
+    public void insertSincronizacaoFechamento(Date data) {
+        SincronizacaoFechamento sincronizacaoFechamento = new SincronizacaoFechamento();
+        sincronizacaoFechamento.setData(data);
+        em.persist(sincronizacaoFechamento);
     }
 
 }

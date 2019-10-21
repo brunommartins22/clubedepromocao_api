@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -23,6 +24,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -30,7 +32,7 @@ public class ScanntechRestClient extends DefaultResponseErrorHandler {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper mapper;
-    
+
     public ScanntechRestClient() {
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(this);
@@ -80,46 +82,50 @@ public class ScanntechRestClient extends DefaultResponseErrorHandler {
 
         for (int i = 0; i < configuracao.getListaUrl().size(); i++) {
 
-            int tentativas = 1;
-            
+            int tentativas = 3;
+
             Url url = configuracao.getListaUrl().get(i);
 
-            try {
-                String urlBase = url.getValor();
-                String idEmpresa = configuracao.getCodigoEmpresa();
-                String usuario = configuracao.getUsuario();
-                String senha = configuracao.getSenha();
-
-                String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/" + nrcaixa + "/movimientos";
-
-                MultiValueMap<String, String> headers = createHeaders(usuario, senha);
-                
-                String json = "";
+            for (int j = 0; j < tentativas; j++) {
                 try {
-                    json = mapper.writeValueAsString(venda);
-                    System.out.println("Json: " + json);
-                } catch (JsonProcessingException ex) {
-                    Logger.getLogger(ScanntechRestClient.class.getName()).log(Level.SEVERE, null, ex);
+                    String urlBase = url.getValor();
+                    String idEmpresa = configuracao.getCodigoEmpresa();
+                    String usuario = configuracao.getUsuario();
+                    String senha = configuracao.getSenha();
+
+                    String endPoint = urlBase + "/api-minoristas/api/v2/minoristas/" + idEmpresa + "/locales/" + idLocal + "/cajas/" + nrcaixa + "/movimientos";
+
+                    MultiValueMap<String, String> headers = createHeaders(usuario, senha);
+
+                    String json = "";
+                    try {
+                        json = mapper.writeValueAsString(venda);
+                        System.out.println("Json: " + json);
+                    } catch (JsonProcessingException ex) {
+                        Logger.getLogger(ScanntechRestClient.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                    ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(json, headers), String.class);
+
+                    System.out.println("Status Code: " + response.getStatusCode());
+                    System.out.println("Body: " + response.getBody());
+
+                    return response;
+
+                } catch (RestClientException e) {
+                    if ((e.getCause() instanceof SocketException)) {
+                        continue;
+                    }
+
+                    if (!(e.getCause() instanceof SocketTimeoutException)) {
+                        throw e;
+                    }
+
+                    if (i >= configuracao.getListaUrl().size()) {
+                        throw e;
+                    }
+
                 }
-
-                ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(json, headers), String.class);
-                
-                System.out.println("Status Code: " + response.getStatusCode());
-                System.out.println("Body: " + response.getBody());
-                
-                return response;
-
-            } catch (RestClientException e) {
-                
-                if (!(e.getCause() instanceof SocketTimeoutException)) {
-                    throw e;
-                }
-
-                if (i >= configuracao.getListaUrl().size()) {
-                    throw e;
-                }
-                
-
             }
 
         }
@@ -149,7 +155,7 @@ public class ScanntechRestClient extends DefaultResponseErrorHandler {
                 return response;
 
             } catch (RestClientException e) {
-                        
+
                 if (!(e.getCause() instanceof SocketTimeoutException)) {
                     throw e;
                 }
