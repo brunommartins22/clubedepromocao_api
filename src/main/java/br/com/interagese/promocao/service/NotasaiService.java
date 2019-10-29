@@ -9,18 +9,15 @@ import br.com.interagese.promocao.util.ScanntechRestClient;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Resource;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
-import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.HttpClientErrorException;
 
 @Service
 public class NotasaiService {
@@ -34,6 +31,8 @@ public class NotasaiService {
 
     private final ScanntechRestClient restClient;
 
+    public boolean executando = false;
+    
     public NotasaiService() {
         restClient = new ScanntechRestClient();
     }
@@ -59,7 +58,7 @@ public class NotasaiService {
                     loops++;
                 }
 
-                for (int i = 0; i < loops; i++) {
+                for (int i = 0; (i < loops && executando); i++) {
                     List<Notasai> vendasParaEnvio = getVendasParaEnvio(
                             dataDaUltimaSincronizacao,
                             dataDaSincronizacaoAtual,
@@ -67,11 +66,13 @@ public class NotasaiService {
                             i == 0 ? i : i * lote,
                             lote
                     );
-
-                    for (Notasai venda : vendasParaEnvio) {
+                    
+                    for (int j = 0; (j < vendasParaEnvio.size() && executando); j++) {
+                        
+                        Notasai venda = vendasParaEnvio.get(j);
 
                         venda.setDescontoTotal(venda.getVldescnot());
-                        
+
                         for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
 
                             venda.setDescontoTotal(notasaiitens.getDesconto() + venda.getDescontoTotal());
@@ -86,7 +87,7 @@ public class NotasaiService {
                                     codscanntech,
                                     venda.getNrcaixa()
                             );
-                            
+
                             int statusCode = response.getStatusCodeValue();
                             String mensagem = "";
 
@@ -101,7 +102,7 @@ public class NotasaiService {
                                     || (statusCode >= 500 && statusCode <= 599)) {
 
                                 mensagem = response.getBody();
-                                
+
                                 venda.setObsscanntech(mensagem);
                                 venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
                                 self.update(venda);
@@ -160,7 +161,8 @@ public class NotasaiService {
                 + "AND (((n.dthrlanc BETWEEN :inicio AND :fim) "
                 + "AND (n.envioscanntech IS NULL) "
                 + "AND (n.situacao IN ('N', 'E')) "
-                + "AND (n.envioscanntech IS NULL))) "
+                + "AND (n.envioscanntech IS NULL)) "
+                + "OR (n.envioscanntech = 'P')) "
                 + "ORDER BY n.dthrlanc ";
 
         TypedQuery<Notasai> query = emFirebird.createQuery(hql, Notasai.class);
@@ -174,7 +176,6 @@ public class NotasaiService {
         List<Notasai> notasaiList = query.getResultList();
 
         setNotasaiitensList(notasaiList);
-        setRegcaixaList(notasaiList);
 
         return notasaiList;
 
@@ -182,9 +183,30 @@ public class NotasaiService {
 
     private void setNotasaiitensList(List<Notasai> list) {
 
-        String hql = "SELECT n FROM Notasaiitens n WHERE n.notasaiitensPK.nrcontr = :nrcontr ";
+        String sql = "select   "
+                + "    n.codpro, "
+                + "    t.codbarun, "
+                + "    n.descpro, "
+                + "    sum(n.qtdvend) as qtdvend, "
+                + "    n.vlunit, "
+                + "    sum(n.vltotal) as vltotal, "
+                + "    sum(case when n.tpdesacrite = 'D' then n.vldesacrite else 0 end) as desconto, "
+                + "    sum(case when n.tpdesacrite = 'A' then n.vldesacrite else 0 end) as acrescimo "
+                + " "
+                + "from "
+                + "    notasaiitens n "
+                + "        left join "
+                + "            tabpro t on "
+                + "                t.codpro = n.codpro "
+                + "where "
+                + "    n.nrcontr = :nrcontr "
+                + "group by "
+                + "    n.codpro, "
+                + "    t.codbarun, "
+                + "    n.descpro, "
+                + "    n.vlunit";
 
-        Query query = emFirebird.createQuery(hql);
+        Query query = emFirebird.createNativeQuery(sql, "detalhes");
 
         for (Notasai notasai : list) {
             notasai.setNotasaiitensList(
@@ -221,9 +243,13 @@ public class NotasaiService {
         return query.getResultList();
     }
 
+    public void setExecutando(boolean executando) {
+        this.executando = executando;
+    }
+    
     @Transactional(value = "integradoTransaction", propagation = Propagation.REQUIRES_NEW)
     public void update(Notasai notasai) {
-        emFirebird.unwrap(Session.class).update(notasai);
+        emFirebird.merge(notasai);
     }
 
 }
