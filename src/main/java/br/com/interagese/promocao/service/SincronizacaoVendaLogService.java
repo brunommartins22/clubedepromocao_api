@@ -34,21 +34,22 @@ public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVen
         List<String> datasEnvio = (List<String>) map.get("datasEnvio");
 
         String sql = "SELECT o FROM SincronizacaoVendaLog o where o.id is not null";
-
+        String sqlCount = "SELECT count(o) FROM SincronizacaoVendaLog o where o.id is not null";
+        String sqlGenerica = "";
         if (codigoFilial != null) {
-            sql += " and o.codigoFilial =" + codigoFilial;
+            sqlGenerica += " and o.codigoFilial =" + codigoFilial;
         }
 
         if (numeroCaixa != null) {
-            sql += " and o.numeroCaixa =" + numeroCaixa;
+            sqlGenerica += " and o.numeroCaixa =" + numeroCaixa;
         }
 
         if (!StringUtils.isEmpty(numeroCupom)) {
-            sql += " and o.numeroCupom = '" + numeroCupom + "'";
+            sqlGenerica += " and o.numeroCupom = '" + numeroCupom + "'";
         }
 
         if (!StringUtils.isEmpty(situacao)) {
-            sql += " and o.situacao = '" + situacao + "'";
+            sqlGenerica += " and o.situacao = '" + situacao + "'";
         }
 
         if (!datasEnvio.isEmpty()) {
@@ -69,11 +70,11 @@ public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVen
                     addErro("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
                 }
 
-                sql += " and o.dataEnvio between '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
+                sqlGenerica += " and o.dataEnvio between '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
 
             } else {
 
-                sql += " and o.dataEnvio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
+                sqlGenerica += " and o.dataEnvio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
 
             }
         }
