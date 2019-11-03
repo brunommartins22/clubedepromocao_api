@@ -129,6 +129,28 @@
             end
         </sql> 
     </changeSet>
+    
+    <changeSet id="ADD COLUMN CODPROMO ON NOTASAIITENS" author="Promoção - José" runOnChange="true">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="NOTASAIITENS" columnName="CODPROMOCAO"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="NOTASAIITENS" schemaName="">
+            <column name="CODPROMO" type="int"/>
+        </addColumn>
+    </changeSet>
+    
+    <changeSet id="ADD COLUMN TPPROMO ON NOTASAIITENS" author="Promoção - José" runOnChange="true">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="NOTASAIITENS" columnName="TPPROMO"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="NOTASAIITENS" schemaName="">
+            <column name="TPPROMO" type="varchar(1)"/>
+        </addColumn>
+    </changeSet>
 
     
 </databaseChangeLog>
