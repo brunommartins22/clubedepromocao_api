@@ -4,17 +4,9 @@ import br.com.interagese.postgres.dtos.StatusSincronizadorDto;
 import br.com.interagese.postgres.models.Configuracao;
 import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.promocao.enuns.Envio;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import java.time.Instant;
-import java.time.Period;
-import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextRefreshedEvent;
@@ -33,8 +25,6 @@ public class SincronizadorService {
     private FechamentoPromocaoService fechamentoPromocaoService;
     @Autowired
     private ConfiguracaoService configuracaoService;
-    @Autowired
-    private SincronizacaoService sincronizacaoService;
     @Autowired
     private ThreadPoolTaskScheduler taskScheduler;
 
@@ -71,18 +61,15 @@ public class SincronizadorService {
 
                 envio = Envio.VENDA;
                 if (executando) {
-                    Thread.sleep(15000);
-//                Date dataDaUltimaSincronizacaoDeVenda = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda();
-//                notasaiService.enviarVendas(configuracaoItems, dataDaUltimaSincronizacaoDeVenda, dataDaSincronizacaoAtual);
-//                sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);;;
+                    //Thread.sleep(15000);
+                    notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
+                   // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
                 }
-                
+
                 envio = Envio.FECHAMENTO;
                 if (executando) {
                     Thread.sleep(5000);
-//                Date dataDoUltimoFechamento = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento();
-//                fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDoUltimoFechamento, dataDaSincronizacaoAtual);
-//                sincronizacaoService.insertSincronizacaoFechamento(dataDaSincronizacaoAtual);
+                    fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
 
                 }
 
@@ -94,18 +81,6 @@ public class SincronizadorService {
                 executando = false;
             }
         }
-    }
-
-    private boolean foiAMaisDe1DiasAtras(Date dataDoUltimoFechamento, Date dataDaSincronizacaoAtual) {
-
-        return Period
-                .between(
-                        Instant.ofEpochMilli(dataDoUltimoFechamento.getTime())
-                                .atZone(ZoneId.systemDefault()).toLocalDate(),
-                        Instant.ofEpochMilli(dataDaSincronizacaoAtual.getTime())
-                                .atZone(ZoneId.systemDefault()).toLocalDate())
-                .getDays() > 2;
-
     }
 
     @EventListener
@@ -134,5 +109,5 @@ public class SincronizadorService {
     public StatusSincronizadorDto getStatus() {
         return new StatusSincronizadorDto(executando, envio);
     }
-    
+
 }

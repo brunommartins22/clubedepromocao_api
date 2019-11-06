@@ -105,7 +105,7 @@ public class ScanntechRestClient extends DefaultResponseErrorHandler {
                         Logger.getLogger(ScanntechRestClient.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
-                    ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(json, headers), String.class);
+                  ResponseEntity<String> response = restTemplate.exchange(endPoint, HttpMethod.POST, new HttpEntity<>(json, headers), String.class);
 
                     System.out.println("Status Code: " + response.getStatusCode());
                     System.out.println("Body: " + response.getBody());
