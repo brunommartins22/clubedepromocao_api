@@ -7,6 +7,9 @@ import br.com.interagese.postgres.models.FilialScanntech;
 import br.com.interagese.promocao.enuns.StatusEnvio;
 import br.com.interagese.promocao.util.ScanntechRestClient;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.Period;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import static java.util.stream.Collectors.*;
@@ -24,6 +27,9 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
     @PersistenceContext(unitName = "integradoPU")
     private EntityManager emFirebird;
 
+    @Autowired
+    private SincronizacaoService sincronizacaoService;
+
     private final ScanntechRestClient restClient;
     private final SimpleDateFormat dbDateFormat;
 
@@ -32,65 +38,86 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
         dbDateFormat = new SimpleDateFormat("yyyy-MM-dd");
     }
 
-    public void enviarFechamento(List<ConfiguracaoItem> configuracaoItems, Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
+    public void enviarFechamento(List<ConfiguracaoItem> configuracaoItems, Date dataDaSincronizacaoAtual) throws Exception {
         //Configuracao de teste
-
         for (ConfiguracaoItem configuracao : configuracaoItems) {
             for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
                 int codfil = filialScanntech1.getCodigoFilial().intValue();
                 int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
-                List<FechamentoPromocao> fechamentos = getFechamentos(
-                        dataDaUltimaSincronizacao,
-                        dataDaSincronizacaoAtual,
-                        codfil,
-                        null
-                );
+                Date dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento(codfil);
 
-                for (FechamentoPromocao fechamento : fechamentos) {
+                if (passou1DiaOuMais(dataDaUltimaSincronizacao, dataDaSincronizacaoAtual)) {
 
-                    fechamento.setCodigoScanntech(Integer.valueOf(codscanntech).longValue());
+                    List<FechamentoPromocao> fechamentos = getFechamentos(
+                            dataDaUltimaSincronizacao,
+                            dataDaSincronizacaoAtual,
+                            codfil,
+                            null
+                    );
 
-                    try {
-                        ResponseEntity<String> response = restClient.enviarFechamento(
-                                configuracao,
-                                fechamento,
-                                codscanntech,
-                                fechamento.getNumeroCaixa().intValue()
-                        );
-
-                        int statusCode = response.getStatusCodeValue();
-                        String message = response.getBody();
-
-                        if (statusCode == 200
-                                || statusCode == 208) {
-
-                            fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
-
-                        } else if (statusCode == 408
-                                || (statusCode >= 500 && statusCode <= 599)) {
-
-                            fechamento.setObsScanntech(message);
-                            fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
-
-                        } else {
-                            fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
-                        }
+                    if (!fechamentos.isEmpty()) {
                         
-                        fechamento.setDataEnvio(new Date());
+                        for (FechamentoPromocao fechamento : fechamentos) {
 
-                    } catch (HttpClientErrorException e) {
+                            fechamento.setCodigoScanntech(Integer.valueOf(codscanntech).longValue());
 
-                       throw e;
+                            try {
+                                ResponseEntity<String> response = restClient.enviarFechamento(
+                                        configuracao,
+                                        fechamento,
+                                        codscanntech,
+                                        fechamento.getNumeroCaixa().intValue()
+                                );
 
+                                int statusCode = response.getStatusCodeValue();
+                                String message = response.getBody();
+
+                                if (statusCode == 200
+                                        || statusCode == 208) {
+
+                                    fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
+
+                                } else if (statusCode == 408
+                                        || (statusCode >= 500 && statusCode <= 599)) {
+
+                                    fechamento.setObsScanntech(message);
+                                    fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
+
+                                } else {
+                                    fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
+                                }
+
+                                fechamento.setDataEnvio(new Date());
+
+                            } catch (HttpClientErrorException e) {
+
+                                throw e;
+
+                            }
+
+                            create(fechamento);
+                            sincronizacaoService.insertSincronizacaoFechamento(codfil, dataDaSincronizacaoAtual);
+                        }
                     }
 
-                    create(fechamento);
                 }
 
             }
         }
+
+    }
+
+    private boolean passou1DiaOuMais(Date dataDoUltimoFechamento, Date dataDaSincronizacaoAtual) {
+
+        return Period
+                .between(
+                        Instant.ofEpochMilli(dataDoUltimoFechamento.getTime())
+                                .atZone(ZoneId.systemDefault()).toLocalDate(),
+                        Instant.ofEpochMilli(dataDaSincronizacaoAtual.getTime())
+                                .atZone(ZoneId.systemDefault()).toLocalDate())
+                .getDays() >= 1;
 
     }
 

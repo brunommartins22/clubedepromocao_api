@@ -28,17 +28,19 @@ public class NotasaiService {
     private LogService logService;
     @Autowired
     private NotasaiService self;
+    @Autowired
+    private SincronizacaoService sincronizacaoService;
 
     private final ScanntechRestClient restClient;
 
     public boolean executando = false;
-    
+
     public NotasaiService() {
         restClient = new ScanntechRestClient();
     }
 
     @Transactional(value = "integradoTransaction")
-    public void enviarVendas(List<ConfiguracaoItem> configItens, Date dataDaUltimaSincronizacao, Date dataDaSincronizacaoAtual) throws Exception {
+    public void enviarVendas(List<ConfiguracaoItem> configItens, Date dataDaSincronizacaoAtual) throws Exception {
 
         for (ConfiguracaoItem configuracao : configItens) {
             for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
@@ -46,82 +48,99 @@ public class NotasaiService {
                 int codfil = filialScanntech1.getCodigoFilial().intValue();
                 int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
+                Date dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda(codfil);
+
                 int vendas = getQuantidadeDeVendasParaEnvio(
                         dataDaUltimaSincronizacao,
                         dataDaSincronizacaoAtual,
                         codfil
                 );
 
-                int lote = 100;
-                int loops = vendas / lote;
-                if ((vendas % lote) != 0) {
-                    loops++;
-                }
+                if (vendas > 0) {
+                    int lote = 100;
+                    int loops = vendas / lote;
+                    if ((vendas % lote) != 0) {
+                        loops++;
+                    }
 
-                for (int i = 0; (i < loops && executando); i++) {
-                    List<Notasai> vendasParaEnvio = getVendasParaEnvio(
-                            dataDaUltimaSincronizacao,
-                            dataDaSincronizacaoAtual,
-                            codfil,
-                            i == 0 ? i : i * lote,
-                            lote
-                    );
-                    
-                    for (int j = 0; (j < vendasParaEnvio.size() && executando); j++) {
-                        
-                        Notasai venda = vendasParaEnvio.get(j);
+                    for (int i = 0; (i < loops && executando); i++) {
+                        List<Notasai> vendasParaEnvio = getVendasParaEnvio(
+                                dataDaUltimaSincronizacao,
+                                dataDaSincronizacaoAtual,
+                                codfil,
+                                i == 0 ? i : i * lote,
+                                lote
+                        );
 
-                        venda.setDescontoTotal(venda.getVldescnot());
+                        for (int j = 0; (j < vendasParaEnvio.size() && executando); j++) {
 
-                        for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
+                            Notasai venda = vendasParaEnvio.get(j);
 
-                            venda.setDescontoTotal(notasaiitens.getDesconto() + venda.getDescontoTotal());
-                            venda.setAcrescimentoTotal(notasaiitens.getAcrescimo() + venda.getAcrescimentoTotal());
+                            Double descontoTotal = venda.getVldescnot();
+                            Double acrescimoTotal = venda.getAcrescimentoTotal();
 
-                        }
-
-                        try {
-                            ResponseEntity<String> response = restClient.enviarVenda(
-                                    configuracao,
-                                    venda,
-                                    codscanntech,
-                                    venda.getNrcaixa()
-                            );
-
-                            int statusCode = response.getStatusCodeValue();
-                            String mensagem = "";
-
-                            if (statusCode == 200
-                                    || statusCode == 208) {
-
-                                venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
-                                self.update(venda);
-                                logService.logVenda(venda.getNumeroCupom(), venda.getNrcontr(), venda.getNrcaixa(), venda.getCodfil());
-
-                            } else if (statusCode == 408
-                                    || (statusCode >= 500 && statusCode <= 599)) {
-
-                                mensagem = response.getBody();
-
-                                venda.setObsscanntech(mensagem);
-                                venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
-                                self.update(venda);
-                                logService.logVendaComErro(venda.getNumeroCupom(), venda.getNrcontr(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
-
-                            } else {
-                                mensagem = response.getBody();
-                                venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
-                                venda.setObsscanntech(mensagem);
-                                self.update(venda);
-                                logService.logVendaComErro(venda.getNumeroCupom(), venda.getNrcontr(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
+                            //Adiciona o subsidio
+                            if (venda.getVlsubsidiototal() != null) {
+                                descontoTotal += venda.getVlsubsidiototal();
                             }
 
-                        } catch (Exception e) {
-                            throw e;
+                            //E o desconto/acrescimo no item
+                            //Detalhes da lógica de preenchimento estão no construtor
+                            //da classe notasaiitens
+                            for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
+                                descontoTotal += notasaiitens.getDescontoNoItem();
+                                acrescimoTotal += notasaiitens.getAcrescimoNoItem();
+                            }
+
+                            venda.setDescontoTotal(descontoTotal);
+                            venda.setAcrescimentoTotal(acrescimoTotal);
+
+                            try {
+                                ResponseEntity<String> response = restClient.enviarVenda(
+                                        configuracao,
+                                        venda,
+                                        codscanntech,
+                                        venda.getNrcaixa()
+                                );
+
+                                int statusCode = response.getStatusCodeValue();
+                                String mensagem = "";
+
+                                if (statusCode == 200
+                                        || statusCode == 208) {
+
+                                    venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
+                                    self.update(venda);
+                                    logService.logVenda(venda.getNumeroCupom(), venda.getNrcontr(), venda.getNrcaixa(), venda.getCodfil());
+
+                                } else if (statusCode == 408
+                                        || (statusCode >= 500 && statusCode <= 599)) {
+
+                                    mensagem = response.getBody();
+
+                                    venda.setObsscanntech(mensagem);
+                                    venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
+                                    self.update(venda);
+                                    logService.logVendaComErro(venda.getNumeroCupom(), venda.getNrcontr(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
+
+                                } else {
+                                    mensagem = response.getBody();
+                                    venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
+                                    venda.setObsscanntech(mensagem);
+                                    self.update(venda);
+                                    logService.logVendaComErro(venda.getNumeroCupom(), venda.getNrcontr(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
+                                }
+
+                            } catch (Exception e) {
+                                throw e;
+                            }
+
                         }
 
                     }
-
+                    
+                    sincronizacaoService.insertSincronizacaoVenda(codfil, dataDaSincronizacaoAtual);
+                    
                 }
 
             }
@@ -183,27 +202,28 @@ public class NotasaiService {
 
     private void setNotasaiitensList(List<Notasai> list) {
 
-        String sql = "select   "
-                + "    n.codpro, "
-                + "    t.codbarun, "
-                + "    n.descpro, "
-                + "    sum(n.qtdvend) as qtdvend, "
-                + "    n.vlunit, "
-                + "    sum(n.vltotal) as vltotal, "
-                + "    sum(case when n.tpdesacrite = 'D' then n.vldesacrite else 0 end) as desconto, "
-                + "    sum(case when n.tpdesacrite = 'A' then n.vldesacrite else 0 end) as acrescimo "
-                + " "
-                + "from "
-                + "    notasaiitens n "
-                + "        left join "
-                + "            tabpro t on "
+        String sql = "select  "
+                + "    n.codpro,"
+                + "    t.codbarun,"
+                + "    n.descpro,"
+                + "    sum(n.qtdvend) as qtdvend,"
+                + "    n.vlunit,"
+                + "    sum(n.vltotal) as vltotal,"
+                + "    sum(case when n.tpdesacrite = 'D' then n.vldesacrite * n.qtdvend else 0 end) as descontoite,"
+                + "    sum(case when n.tpdesacrite = 'A' then n.vldesacrite * n.qtdvend else 0 end) as acrescimoite,"
+                + "    sum(case when n.tpdesacrnot = 'D' then (n.vldesacrnot + n.vlsubsidio) else 0 end) as descontonot,"
+                + "    sum(case when n.tpdesacrnot = 'A' then n.vldesacrnot else 0 end) as acrescimonot "
+                + "from"
+                + "    notasaiitens n"
+                + "        left join"
+                + "            tabpro t on"
                 + "                t.codpro = n.codpro "
-                + "where "
+                + "where"
                 + "    n.nrcontr = :nrcontr "
-                + "group by "
-                + "    n.codpro, "
-                + "    t.codbarun, "
-                + "    n.descpro, "
+                + "group by"
+                + "    n.codpro,"
+                + "    t.codbarun,"
+                + "    n.descpro,"
                 + "    n.vlunit";
 
         Query query = emFirebird.createNativeQuery(sql, "detalhes");
@@ -246,7 +266,7 @@ public class NotasaiService {
     public void setExecutando(boolean executando) {
         this.executando = executando;
     }
-    
+
     @Transactional(value = "integradoTransaction", propagation = Propagation.REQUIRES_NEW)
     public void update(Notasai notasai) {
         emFirebird.merge(notasai);

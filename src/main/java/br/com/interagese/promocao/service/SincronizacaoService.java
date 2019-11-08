@@ -16,13 +16,16 @@ public class SincronizacaoService {
     @PersistenceContext(unitName = "default")
     private EntityManager em;
 
-    public Date getDataDaUltimaSincronizacaoDeVenda() {
+    public Date getDataDaUltimaSincronizacaoDeVenda(Integer codfil) {
 
-        String hql = "SELECT s.data FROM SincronizacaoVenda s WHERE s.id = (SELECT MAX(s.id) FROM SincronizacaoVenda s) ";
+        String hql = "SELECT s.data FROM SincronizacaoVenda s WHERE s.id = "
+                + "(SELECT MAX(s.id) FROM SincronizacaoVenda s WHERE s.codigoFilial = :codfil) ";
 
         try {
 
-            return em.createQuery(hql, Date.class).getSingleResult();
+            return em.createQuery(hql, Date.class)
+                    .setParameter("codfil", codfil)
+                    .getSingleResult();
 
         } catch (NoResultException e) {
             return new Date();
@@ -30,13 +33,16 @@ public class SincronizacaoService {
 
     }
     
-    public Date getDataDaUltimaSincronizacaoDeFechamento() {
+    public Date getDataDaUltimaSincronizacaoDeFechamento(Integer codfil) {
 
-        String hql = "SELECT s.data FROM SincronizacaoFechamento s WHERE s.id = (SELECT MAX(s.id) FROM SincronizacaoFechamento s) ";
+        String hql = "SELECT s.data FROM SincronizacaoFechamento s WHERE s.id = "
+                + "(SELECT MAX(s.id) FROM SincronizacaoFechamento s WHERE s.codigoFilial = :codfil) ";
 
         try {
 
-            return em.createQuery(hql, Date.class).getSingleResult();
+            return em.createQuery(hql, Date.class)
+                    .setParameter("codfil", codfil)
+                    .getSingleResult();
 
         } catch (NoResultException e) {
             return new Date();
@@ -44,14 +50,18 @@ public class SincronizacaoService {
 
     }
 
-    public void insertSincronizacaoVenda(Date data) {
+    @Transactional
+    public void insertSincronizacaoVenda(Integer codigoFilial, Date data) {
         SincronizacaoVenda scanntechsinc = new SincronizacaoVenda();
+        scanntechsinc.setCodigoFilial(codigoFilial);
         scanntechsinc.setData(data);
         em.persist(scanntechsinc);
     }
     
-    public void insertSincronizacaoFechamento(Date data) {
+    @Transactional
+    public void insertSincronizacaoFechamento(Integer codigoFilial, Date data) {
         SincronizacaoFechamento sincronizacaoFechamento = new SincronizacaoFechamento();
+        sincronizacaoFechamento.setCodigoFilial(codigoFilial);
         sincronizacaoFechamento.setData(data);
         em.persist(sincronizacaoFechamento);
     }
