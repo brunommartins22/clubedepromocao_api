@@ -8,7 +8,9 @@ package br.com.interagese.promocao.service;
 import br.com.interagese.padrao.rest.util.PadraoService;
 import br.com.interagese.postgres.models.SincronizacaoVendaLog;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.persistence.TypedQuery;
@@ -26,12 +28,14 @@ public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVen
     @Autowired
     private FilialScanntechService filialScanntechService;
 
-    public List<SincronizacaoVendaLog> loadSearchFilters(Map map) throws Exception {
+    public Map loadSearchFilters(Map map) throws Exception {
         Integer codigoFilial = (Integer) map.get("codigoFilial");
         String numeroCaixa = (String) map.get("numeroCaixa");
         String numeroCupom = (String) map.get("numeroCupom");
         String situacao = (String) map.get("situacao");
         List<String> datasEnvio = (List<String>) map.get("datasEnvio");
+        int inicial = ((Number) map.get("inicial")).intValue();
+        int finalR = ((Number) map.get("final")).intValue();
 
         String sql = "SELECT o FROM SincronizacaoVendaLog o where o.id is not null";
         String sqlCount = "SELECT count(o) FROM SincronizacaoVendaLog o where o.id is not null";
@@ -79,17 +83,27 @@ public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVen
             }
         }
 
-        TypedQuery<SincronizacaoVendaLog> result = em.createQuery(sql + " order by o.situacao asc", SincronizacaoVendaLog.class);
+        Long count = (Long) em.createQuery(sqlCount + sqlGenerica).getSingleResult();
+        List<SincronizacaoVendaLog> result = new ArrayList<>();
+        if (count != null && count > 0) {
 
-        if (result.getResultList() != null && !result.getResultList().isEmpty()) {
-            for (SincronizacaoVendaLog o : result.getResultList()) {
+            TypedQuery<SincronizacaoVendaLog> resp = em.createQuery(sql + sqlGenerica + " order by o.situacao desc,o.dataEnvio desc", SincronizacaoVendaLog.class).setFirstResult(inicial).setMaxResults(finalR);
+
+            for (SincronizacaoVendaLog o : resp.getResultList()) {
                 o.setFilial(o.getCodigoFilial() + " - " + filialScanntechService.loadNameFilialByCodigoFilial(o.getCodigoFilial().longValue()));
                 o.setSituacaoDesc(o.getValidarSitucao());
             }
+
+            result.addAll(resp.getResultList());
+
         } else {
             addErro("Nenhum registro encontrado na base de dados.");
         }
 
-        return result.getResultList();
+        map = new HashMap();
+        map.put("count", count);
+        map.put("list", result);
+
+        return map;
     }
 }

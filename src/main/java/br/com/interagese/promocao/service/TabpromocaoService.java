@@ -64,29 +64,37 @@ public class TabpromocaoService {
         String tituloPromocao = (String) map.get("tituloPromocao");
         String autorPromocao = (String) map.get("autorPromocao");
         List<String> datasValidade = (List<String>) map.get("validade");
+        int inicial = (Integer) map.get("inicial");
+        int finalR = (Integer) map.get("final");
 
         String sql = "select distinct tp.* from tabpromocaofilial tpf "
                 + "right join tabpromocao tp on tpf.codpromocao = tp.codpromocao "
                 + "where tp.rgevento <> 3";
 
+        String countSql = "select count(distinct tp.codpromocao) from tabpromocaofilial tpf "
+                + "right join tabpromocao tp on tpf.codpromocao = tp.codpromocao "
+                + "where tp.rgevento <> 3";
+
+        String sqlGenerica = "";
+
         if (codigoFilial != null) {
-            sql += " and tpf.codfil =" + codigoFilial;
+            sqlGenerica += " and tpf.codfil =" + codigoFilial;
         }
 
         if (tipo != null) {
-            sql += " and tp.tipo = " + tipo;
+            sqlGenerica += " and tp.tipo = " + tipo;
         }
 
         if (!StringUtils.isEmpty(situacao)) {
-            sql += " and tp.situacao ='" + situacao + "'";
+            sqlGenerica += " and tp.situacao ='" + situacao + "'";
         }
 
         if (!StringUtils.isEmpty(tituloPromocao)) {
-            sql += " and tp.titulo like '" + tituloPromocao + "%'";
+            sqlGenerica += " and tp.titulo like '" + tituloPromocao + "%'";
         }
 
         if (!StringUtils.isEmpty(autorPromocao)) {
-            sql += " and tp.autor like '" + autorPromocao + "%'";
+            sqlGenerica += " and tp.autor like '" + autorPromocao + "%'";
         }
 
         if (!datasValidade.isEmpty()) {
@@ -106,24 +114,25 @@ public class TabpromocaoService {
                     throw new Exception("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
                 }
 
-                sql += " and tp.datainicio >= '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and tp.datafim <= '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
+                sqlGenerica += " and tp.datainicio >= '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and tp.datafim <= '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
 
             } else {
 
-                sql += " and tp.datainicio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
+                sqlGenerica += " and tp.datainicio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
 
             }
         }
 
-        TypedQuery<Tabpromocao> result = (TypedQuery<Tabpromocao>) emFirebird.createNativeQuery(sql, Tabpromocao.class);
+        Long count = ((Number) emFirebird.createNativeQuery(countSql + sqlGenerica).getSingleResult()).longValue();
         Integer countAtivos = 0;
         Integer countInativos = 0;
         Integer countPendentes = 0;
         Integer countRejeitados = 0;
+        List<Tabpromocao> result = new ArrayList<>();
+        if (count > 0) {
+            TypedQuery<Tabpromocao> resp = (TypedQuery<Tabpromocao>) emFirebird.createNativeQuery(sql+sqlGenerica, Tabpromocao.class).setFirstResult(inicial).setMaxResults(finalR);
 
-        if (!result.getResultList().isEmpty()) {
-
-            for (Tabpromocao tabpromocao : result.getResultList()) {
+            for (Tabpromocao tabpromocao : resp.getResultList()) {
 
                 switch (tabpromocao.getTipo()) {
                     case 2: {
@@ -183,19 +192,22 @@ public class TabpromocaoService {
                 }
 
             }
+
+            result.addAll(resp.getResultList());
+
         } else {
             throw new Exception("Nenhum registro encontrado na base de dados.");
         }
 
         Map resp = new HashMap();
 
+        resp.put("count", count);
         resp.put("countAtivos", countAtivos);
         resp.put("countInativos", countInativos);
         resp.put("countPendentes", countPendentes);
         resp.put("countRejeitados", countRejeitados);
-        resp.put("promocoes", result.getResultList());
-        
-        
+        resp.put("promocoes", result);
+
         return resp;
     }
 

@@ -27,13 +27,13 @@ public class FilialScanntechService extends PadraoService<FilialScanntech> {
 
         List<FilialScanntech> result = new ArrayList<>();
 
-        List<Object[]> resp = emFirebird.createNativeQuery("select codfil,nomfil,codscann from tabfil").getResultList();
+        List<Object[]> resp = emFirebird.createNativeQuery("select codfil,nomfil,codscanntech from tabfil").getResultList();
 
         for (Object[] object : resp) {
             FilialScanntech filial = new FilialScanntech();
             filial.setCodigoFilial(((Number) object[0]).longValue());
             filial.setNomeFilial(((String) object[1]) != null ? ((String) object[1]) : " ");
-            filial.setCodigoScanntech(((String) object[2]) != null ? Long.parseLong(((String) object[2])) : 0);
+            filial.setCodigoScanntech(((Number) object[2]) != null ? ((Number) object[2]).longValue() : 0);
             result.add(filial);
         }
 
