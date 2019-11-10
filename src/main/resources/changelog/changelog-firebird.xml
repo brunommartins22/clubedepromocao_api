@@ -110,7 +110,7 @@
         </addColumn>
     </changeSet>
     
-    <changeSet id="Criar trigger na tabela NOTASAI" author="Promoção - José">
+    <changeSet id="Criar trigger na tabela NOTASAI" author="Promoção - José" runOnChange="true">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
                 SELECT
@@ -124,7 +124,7 @@
             active before update position 1
             AS
             begin
-            IF(NEW.SITUACAO IN ('A', 'C') AND OLD.ENVIOSCANNTECH = 'E')
+            IF(NEW.SITUACAO IN ('A', 'C') AND OLD.SITUACAO = 'N' AND OLD.ENVIOSCANNTECH = 'E')
             THEN NEW.ENVIOSCANNTECH = 'P';
             end
         </sql> 

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Properties>
+        <Property name="log-path">logs/</Property>
+        <Property name="log-name">log-clubedepromocao</Property>
+        <Property name="file-name">log-clubedepromocao</Property>
+        <Property name="file-pattern">log-transmissor-%d{dd-MM-yyyy}</Property>
+        <Property name="log-pattern">%d{dd-MM-yyyy HH:mm} %-5level %logger{36} - %msg%n</Property>
+        <Property name="log-exception-pattern">%d{dd-MM-yyyy HH:mm} %msg %throwable %n</Property>
+    </Properties>
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${log-pattern}"/>
+        </Console>
+        <RollingFile name="${log-name}" fileName="${log-path}/${file-name}.log" filePattern="${log-path}/${file-pattern}.log.bck">
+            <PatternLayout>
+                <Pattern>${log-pattern}</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+            </Policies>
+        </RollingFile>
+        <RollingFile name="${log-name}-error" fileName="${log-path}/${file-name}-error.log" filePattern="${log-path}/${file-pattern}-error.log.bck">
+            <PatternLayout>
+                <Pattern>${log-exception-pattern}</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+            </Policies>
+        </RollingFile>
+    </Appenders>
+    <Loggers>
+        <Root level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="${log-name}-error" level="error" />
+            <AppenderRef ref="${log-name}" />
+        </Root>
+    </Loggers>
+</Configuration>

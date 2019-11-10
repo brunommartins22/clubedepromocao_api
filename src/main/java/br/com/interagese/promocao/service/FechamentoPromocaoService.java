@@ -14,6 +14,7 @@ import java.util.Date;
 import java.util.List;
 import static java.util.stream.Collectors.*;
 import javax.persistence.EntityManager;
+import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,72 +40,83 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
     }
 
     public void enviarFechamento(List<ConfiguracaoItem> configuracaoItems, Date dataDaSincronizacaoAtual) throws Exception {
-        //Configuracao de teste
-        for (ConfiguracaoItem configuracao : configuracaoItems) {
-            for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
+        try {
+            //Configuracao de teste
+            for (ConfiguracaoItem configuracao : configuracaoItems) {
+                for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
-                int codfil = filialScanntech1.getCodigoFilial().intValue();
-                int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
+                    int codfil = filialScanntech1.getCodigoFilial().intValue();
+                    int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
-                Date dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento(codfil);
+                    Date dataDaUltimaSincronizacao;
+                    try {
+                        dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento(codfil);
+                    } catch (NoResultException e) {
+                        dataDaUltimaSincronizacao = dataDaSincronizacaoAtual;
+                        this.sincronizacaoService.insertSincronizacaoFechamento(codfil, dataDaUltimaSincronizacao);
+                        return;
+                    }
 
-                if (passou1DiaOuMais(dataDaUltimaSincronizacao, dataDaSincronizacaoAtual)) {
+                    if (passou1DiaOuMais(dataDaUltimaSincronizacao, dataDaSincronizacaoAtual)) {
 
-                    List<FechamentoPromocao> fechamentos = getFechamentos(
-                            dataDaUltimaSincronizacao,
-                            dataDaSincronizacaoAtual,
-                            codfil,
-                            null
-                    );
+                        List<FechamentoPromocao> fechamentos = getFechamentos(
+                                dataDaUltimaSincronizacao,
+                                dataDaSincronizacaoAtual,
+                                codfil,
+                                null
+                        );
 
-                    if (!fechamentos.isEmpty()) {
-                        
-                        for (FechamentoPromocao fechamento : fechamentos) {
+                        if (!fechamentos.isEmpty()) {
 
-                            fechamento.setCodigoScanntech(Integer.valueOf(codscanntech).longValue());
+                            for (FechamentoPromocao fechamento : fechamentos) {
 
-                            try {
-                                ResponseEntity<String> response = restClient.enviarFechamento(
-                                        configuracao,
-                                        fechamento,
-                                        codscanntech,
-                                        fechamento.getNumeroCaixa().intValue()
-                                );
+                                fechamento.setCodigoScanntech(Integer.valueOf(codscanntech).longValue());
 
-                                int statusCode = response.getStatusCodeValue();
-                                String message = response.getBody();
+                                try {
+                                    ResponseEntity<String> response = restClient.enviarFechamento(
+                                            configuracao,
+                                            fechamento,
+                                            codscanntech,
+                                            fechamento.getNumeroCaixa().intValue()
+                                    );
 
-                                if (statusCode == 200
-                                        || statusCode == 208) {
+                                    int statusCode = response.getStatusCodeValue();
+                                    String message = response.getBody();
 
-                                    fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
+                                    if (statusCode == 200
+                                            || statusCode == 208) {
 
-                                } else if (statusCode == 408
-                                        || (statusCode >= 500 && statusCode <= 599)) {
+                                        fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
 
-                                    fechamento.setObsScanntech(message);
-                                    fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
+                                    } else if (statusCode == 408
+                                            || (statusCode >= 500 && statusCode <= 599)) {
 
-                                } else {
-                                    fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
+                                        fechamento.setObsScanntech(message);
+                                        fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
+
+                                    } else {
+                                        fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
+                                    }
+
+                                    fechamento.setDataEnvio(new Date());
+
+                                } catch (HttpClientErrorException e) {
+
+                                    throw e;
+
                                 }
 
-                                fechamento.setDataEnvio(new Date());
-
-                            } catch (HttpClientErrorException e) {
-
-                                throw e;
-
+                                create(fechamento);
+                                sincronizacaoService.insertSincronizacaoFechamento(codfil, dataDaSincronizacaoAtual);
                             }
-
-                            create(fechamento);
-                            sincronizacaoService.insertSincronizacaoFechamento(codfil, dataDaSincronizacaoAtual);
                         }
+
                     }
 
                 }
-
             }
+        } catch (Exception e) {
+            throw new Exception("Erro ao enviar fechamentos", e);
         }
 
     }
@@ -117,7 +129,7 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
                                 .atZone(ZoneId.systemDefault()).toLocalDate(),
                         Instant.ofEpochMilli(dataDaSincronizacaoAtual.getTime())
                                 .atZone(ZoneId.systemDefault()).toLocalDate())
-                .getDays() >= 1;
+                .getDays() >= 2;
 
     }
 

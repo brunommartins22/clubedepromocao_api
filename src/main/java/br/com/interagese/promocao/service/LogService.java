@@ -14,7 +14,7 @@ public class LogService {
     private EntityManager em;
 
     @Transactional
-    public void logVenda(String nrcupom, String nrcontr, Integer numeroCaixa, Integer codigoFilial) {
+    public void logVenda(String nrcupom, String nrcontr, Integer numeroCaixa, Integer codigoFilial, Integer codigoScanntech, boolean isCancelamento) {
 
         SincronizacaoVendaLog log = new SincronizacaoVendaLog();
         log.setNumeroCupom(nrcupom);
@@ -23,13 +23,15 @@ public class LogService {
         log.setNumeroCaixa(numeroCaixa);
         log.setCodigoFilial(codigoFilial);
         log.setDataEnvio(new Date());
+        log.setCodigoScanntech(codigoScanntech);
+        log.setCancelamento(isCancelamento);
 
         em.persist(log);
 
     }
 
     @Transactional
-    public void logVendaComErro(String nrcupom, String nrcontr, String erro, Integer numeroCaixa, Integer codigoFilial) {
+    public void logVendaComErro(String nrcupom, String nrcontr, String erro, Integer numeroCaixa, Integer codigoFilial, Integer codigoScanntech, boolean isCancelamento) {
 
         SincronizacaoVendaLog log = new SincronizacaoVendaLog();
         log.setNumeroCupom(nrcupom);
@@ -39,6 +41,8 @@ public class LogService {
         log.setNumeroCaixa(numeroCaixa);
         log.setCodigoFilial(codigoFilial);
         log.setErro(erro.substring(0, Math.min(erro.length(), 255)));
+        log.setCodigoScanntech(codigoScanntech);
+        log.setCancelamento(isCancelamento);
 
         em.persist(log);
 

@@ -7,6 +7,8 @@ import br.com.interagese.promocao.enuns.Envio;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextRefreshedEvent;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SincronizadorService {
+    
+    private final static Logger LOGGER = LogManager.getFormatterLogger(SincronizadorService.class);
 
     @Autowired
     private TabpromocaoService tabpromocaoService;
@@ -50,13 +54,16 @@ public class SincronizadorService {
             try {
                 Date dataDaSincronizacaoAtual = new Date();
                 System.out.println("Executando: " + dataDaSincronizacaoAtual);
+                
+                LOGGER.info("Iniciando sincronizacao: " + dataDaSincronizacaoAtual);
+                
                 Configuracao configuracao = configuracaoService.findById(1L);
                 List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
 //              
                 envio = Envio.PROMOCAO;
                 if (executando) {
-                    Thread.sleep(5000);
-                    //tabpromocaoService.baixarPromocoes(configuracaoItems);
+                    //Thread.sleep(5000);
+                 //   tabpromocaoService.baixarPromocoes(configuracaoItems);
                 }
 
                 envio = Envio.VENDA;
@@ -69,12 +76,13 @@ public class SincronizadorService {
                 envio = Envio.FECHAMENTO;
                 if (executando) {
                     Thread.sleep(5000);
-                    fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
+                    //fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
 
                 }
 
-                System.out.println("Sincronização finalizada: " + dataDaSincronizacaoAtual);
+                LOGGER.info("Sincronização finalizada");
             } catch (Exception ex) {
+                LOGGER.error("Erro ao realizar sincronização: ", ex);
                 ex.printStackTrace();
             } finally {
                 envio = Envio.NADA;
