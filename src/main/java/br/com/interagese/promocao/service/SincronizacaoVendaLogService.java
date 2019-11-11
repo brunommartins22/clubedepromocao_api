@@ -8,7 +8,9 @@ package br.com.interagese.promocao.service;
 import br.com.interagese.padrao.rest.util.PadraoService;
 import br.com.interagese.postgres.models.SincronizacaoVendaLog;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.persistence.TypedQuery;
@@ -26,29 +28,32 @@ public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVen
     @Autowired
     private FilialScanntechService filialScanntechService;
 
-    public List<SincronizacaoVendaLog> loadSearchFilters(Map map) throws Exception {
+    public Map loadSearchFilters(Map map) throws Exception {
         Integer codigoFilial = (Integer) map.get("codigoFilial");
         String numeroCaixa = (String) map.get("numeroCaixa");
         String numeroCupom = (String) map.get("numeroCupom");
         String situacao = (String) map.get("situacao");
         List<String> datasEnvio = (List<String>) map.get("datasEnvio");
+        int inicial = ((Number) map.get("inicial")).intValue();
+        int finalR = ((Number) map.get("final")).intValue();
 
         String sql = "SELECT o FROM SincronizacaoVendaLog o where o.id is not null";
-
+        String sqlCount = "SELECT count(o) FROM SincronizacaoVendaLog o where o.id is not null";
+        String sqlGenerica = "";
         if (codigoFilial != null) {
-            sql += " and o.codigoFilial =" + codigoFilial;
+            sqlGenerica += " and o.codigoFilial =" + codigoFilial;
         }
 
         if (numeroCaixa != null) {
-            sql += " and o.numeroCaixa =" + numeroCaixa;
+            sqlGenerica += " and o.numeroCaixa =" + numeroCaixa;
         }
 
         if (!StringUtils.isEmpty(numeroCupom)) {
-            sql += " and o.numeroCupom = '" + numeroCupom + "'";
+            sqlGenerica += " and o.numeroCupom = '" + numeroCupom + "'";
         }
 
         if (!StringUtils.isEmpty(situacao)) {
-            sql += " and o.situacao = '" + situacao + "'";
+            sqlGenerica += " and o.situacao = '" + situacao + "'";
         }
 
         if (!datasEnvio.isEmpty()) {
@@ -69,26 +74,36 @@ public class SincronizacaoVendaLogService extends PadraoService<SincronizacaoVen
                     addErro("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
                 }
 
-                sql += " and o.dataEnvio between '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
+                sqlGenerica += " and o.dataEnvio between '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
 
             } else {
 
-                sql += " and o.dataEnvio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
+                sqlGenerica += " and o.dataEnvio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
 
             }
         }
 
-        TypedQuery<SincronizacaoVendaLog> result = em.createQuery(sql + " order by o.situacao asc", SincronizacaoVendaLog.class);
+        Long count = (Long) em.createQuery(sqlCount + sqlGenerica).getSingleResult();
+        List<SincronizacaoVendaLog> result = new ArrayList<>();
+        if (count != null && count > 0) {
 
-        if (result.getResultList() != null && !result.getResultList().isEmpty()) {
-            for (SincronizacaoVendaLog o : result.getResultList()) {
+            TypedQuery<SincronizacaoVendaLog> resp = em.createQuery(sql + sqlGenerica + " order by o.situacao desc,o.dataEnvio desc", SincronizacaoVendaLog.class).setFirstResult(inicial).setMaxResults(finalR);
+
+            for (SincronizacaoVendaLog o : resp.getResultList()) {
                 o.setFilial(o.getCodigoFilial() + " - " + filialScanntechService.loadNameFilialByCodigoFilial(o.getCodigoFilial().longValue()));
                 o.setSituacaoDesc(o.getValidarSitucao());
             }
+
+            result.addAll(resp.getResultList());
+
         } else {
             addErro("Nenhum registro encontrado na base de dados.");
         }
 
-        return result.getResultList();
+        map = new HashMap();
+        map.put("count", count);
+        map.put("list", result);
+
+        return map;
     }
 }

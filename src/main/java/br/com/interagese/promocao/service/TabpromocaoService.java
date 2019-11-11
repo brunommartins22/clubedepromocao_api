@@ -8,12 +8,16 @@ import br.com.interagese.postgres.models.FilialScanntech;
 import br.com.interagese.postgres.models.SincronizacaoPromocao;
 import br.com.interagese.promocao.enuns.EstadoPromocao;
 import br.com.interagese.promocao.util.ScanntechRestClient;
+import br.com.interagese.util.CalcUtil;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.glass.events.ViewEvent;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.persistence.EntityManager;
@@ -52,7 +56,7 @@ public class TabpromocaoService {
     }
 
     @Transactional("integradoTransaction")
-    public List<Tabpromocao> findTabpromocaoByFilters(Map map) throws Exception {
+    public Map findTabpromocaoByFilters(Map map) throws Exception {
 
         Integer codigoFilial = (Integer) map.get("codigoFilial");
         Integer tipo = (Integer) map.get("tipo");
@@ -60,29 +64,37 @@ public class TabpromocaoService {
         String tituloPromocao = (String) map.get("tituloPromocao");
         String autorPromocao = (String) map.get("autorPromocao");
         List<String> datasValidade = (List<String>) map.get("validade");
+        int inicial = (Integer) map.get("inicial");
+        int finalR = (Integer) map.get("final");
 
-        if (codigoFilial == null) {
-            throw new Exception("Filial não informada.");
+        String sql = "select distinct tp.* from tabpromocaofilial tpf "
+                + "right join tabpromocao tp on tpf.codpromocao = tp.codpromocao "
+                + "where tp.rgevento <> 3";
+
+        String countSql = "select count(distinct tp.codpromocao) from tabpromocaofilial tpf "
+                + "right join tabpromocao tp on tpf.codpromocao = tp.codpromocao "
+                + "where tp.rgevento <> 3";
+
+        String sqlGenerica = "";
+
+        if (codigoFilial != null) {
+            sqlGenerica += " and tpf.codfil =" + codigoFilial;
         }
 
-        String sql = "select tp.* from tabpromocao tp "
-                + "join tabpromocaofilial tpf on tpf.codpromocao = tp.codpromocao "
-                + "where tpf.codfil = " + codigoFilial;
-
         if (tipo != null) {
-            sql += " and tp.tipo = " + tipo;
+            sqlGenerica += " and tp.tipo = " + tipo;
         }
 
         if (!StringUtils.isEmpty(situacao)) {
-            sql += " and tp.situacao ='" + situacao + "'";
+            sqlGenerica += " and tp.situacao ='" + situacao + "'";
         }
 
         if (!StringUtils.isEmpty(tituloPromocao)) {
-            sql += " and tp.titulo like '%" + tituloPromocao + "%'";
+            sqlGenerica += " and tp.titulo like '" + tituloPromocao + "%'";
         }
 
         if (!StringUtils.isEmpty(autorPromocao)) {
-            sql += " and tp.autor like '%" + autorPromocao + "%'";
+            sqlGenerica += " and tp.autor like '" + autorPromocao + "%'";
         }
 
         if (!datasValidade.isEmpty()) {
@@ -102,34 +114,348 @@ public class TabpromocaoService {
                     throw new Exception("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
                 }
 
-                sql += " and tp.datainicio >= '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and tp.datafim <= '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
+                sqlGenerica += " and tp.datainicio >= '" + dateFormat.format(dateFormatDate.parse(date1)) + "' and tp.datafim <= '" + dateFormat.format(dateFormatDate.parse(date2)) + "'";
 
             } else {
 
-                sql += " and tp.datainicio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
+                sqlGenerica += " and tp.datainicio >='" + dateFormat.format(dateFormatDate.parse(date1)) + "'";
 
             }
         }
 
-        TypedQuery<Tabpromocao> result = (TypedQuery<Tabpromocao>) emFirebird.createNativeQuery(sql, Tabpromocao.class);
+        Long count = ((Number) emFirebird.createNativeQuery(countSql + sqlGenerica).getSingleResult()).longValue();
+        Integer countAtivos = 0;
+        Integer countInativos = 0;
+        Integer countPendentes = 0;
+        Integer countRejeitados = 0;
+        List<Tabpromocao> result = new ArrayList<>();
+        if (count > 0) {
+            TypedQuery<Tabpromocao> resp = (TypedQuery<Tabpromocao>) emFirebird.createNativeQuery(sql+sqlGenerica, Tabpromocao.class).setFirstResult(inicial).setMaxResults(finalR);
 
-        for (Tabpromocao tabpromocao : result.getResultList()) {
+            for (Tabpromocao tabpromocao : resp.getResultList()) {
 
-            List<Tabpromoitem> itens = tabpromoItemService.findTabpromoitemByCodigopromocao(tabpromocao.getCodpromocao());
-
-            for (Tabpromoitem item : itens) {
-                if (item.getTipo().equals("I")) {
-                    tabpromocao.getItemList().add(item);
-                } else {
-                    tabpromocao.getBeneficioList().add(item);
+                switch (tabpromocao.getTipo()) {
+                    case 2: {
+                        tabpromocao.setItemList(getItensDaPromocaoLevaPaga(tabpromocao.getCodpromocao()));
+                        calcularPercentagemLucroLevaPaga(tabpromocao);
+                        tabpromocao.setResumoPromo("Levando a quantidade informada de um dos produto(s) abaixo,"
+                                + " é pago apenas " + tabpromocao.getPaga() + " unidade(s)");
+                        break;
+                    }
+                    case 3: {
+                        tabpromocao.setItemList(getItensDaPromocaoDescontoVariavel(tabpromocao.getCodpromocao()));
+                        calcularPercentagemLucroDescontoVariavel(tabpromocao);
+                        tabpromocao.setResumoPromo("Levando a quantidade informada de um dos produtos abaixo. "
+                                + "Se aplica um desconto percentual fixo de "
+                                + "" + new DecimalFormat("#,##0.00' %'").format(tabpromocao.getDesconto())
+                                + " no valor total");
+                        break;
+                    }
+                    case 5: {
+                        tabpromocao.setItemList(getItensDaPromocaoPrecoFixo(tabpromocao.getCodpromocao()));
+                        calcularPercentagemPrecoFixo(tabpromocao);
+                        tabpromocao.setResumoPromo("Levando a quantidade informada de um dos produtos abaixo,"
+                                + "paga um total de " + new DecimalFormat("'R$ '#,##0.00").format(tabpromocao.getPreco()) + ":");
+                        break;
+                    }
+                    case 6: {
+                        tabpromocao.setItemList(getItensDaPromocaoDescontoFixo(tabpromocao.getCodpromocao()));
+                        calcularPercentagemDescontoFixo(tabpromocao);
+                        tabpromocao.setResumoPromo("Levando a quantidade informada de um dos produto(s) abaixo,"
+                                + "é aplicado um desconto fixo no valor de " + new DecimalFormat("'R$ '#,##0.00").format(tabpromocao.getDesconto()) + " :");
+                        break;
+                    }
                 }
+
+                tabpromocao.setTipoDesc(tabpromocao.getValidarTipo());
+                tabpromocao.setSituacaoDesc(tabpromocao.getValidarSituacao());
+                tabpromocao.setDataInicioDesc(tabpromocao.getValidarData(tabpromocao.getDatainicio()));
+                tabpromocao.setDataFimDesc(tabpromocao.getValidarData(tabpromocao.getDatafim()));
+
+                switch (tabpromocao.getSituacao()) {
+                    case "A": {
+                        countAtivos++;
+                        break;
+                    }
+                    case "I": {
+                        countInativos++;
+                        break;
+                    }
+                    case "P": {
+                        countPendentes++;
+                        break;
+                    }
+                    case "R": {
+                        countRejeitados++;
+                        break;
+                    }
+                }
+
             }
 
-            tabpromocao.setTipoDesc(tabpromocao.getValidarTipo());
+            result.addAll(resp.getResultList());
 
+        } else {
+            throw new Exception("Nenhum registro encontrado na base de dados.");
         }
 
-        return result.getResultList();
+        Map resp = new HashMap();
+
+        resp.put("count", count);
+        resp.put("countAtivos", countAtivos);
+        resp.put("countInativos", countInativos);
+        resp.put("countPendentes", countPendentes);
+        resp.put("countRejeitados", countRejeitados);
+        resp.put("promocoes", result);
+
+        return resp;
+    }
+
+//    public static void main(String args[]) {
+//        int cont = 1;
+//        Tabpromocao resp = new Tabpromocao();
+//        resp.setSituacao("A");
+//        for (int i = 0; i < 10; i++) {
+//            switch (resp.getSituacao()) {
+//                case "A": {
+//                    resp.setCountAtivos(cont++);
+//                    break;
+//                }
+//            }
+//        }
+//
+//        System.out.println("Count situacao = " + resp.getCountAtivos());
+//
+//    }
+    //************************** Promocao Leva Paga ****************************
+    public List<Tabpromoitem> getItensDaPromocaoLevaPaga(Integer codpromocao) {
+
+        String sql = "select\n"
+                + "       tpi.codpromocao,\n"
+                + "       tpf.codfil,\n"
+                + "       tl.nomfil,\n"
+                + "       tpi.codpro,\n"
+                + "       tpi.codbarun,\n"
+                + "       tpi.quantidade,\n"
+                + "       tp.paga,\n"
+                + "       tpi.descpro,\n"
+                + "       tf.prvapro,\n"
+                + "       tf.prcustocom\n"
+                + "    from\n"
+                + "        tabpromocaofilial tpf\n"
+                + "            right join tabpromocao tp\n"
+                + "                on\n"
+                + "                    tp.codpromocao = tpf.codpromocao\n"
+                + "            left join tabpromoitem tpi\n"
+                + "                on\n"
+                + "                    tpi.codpromocao = tp.codpromocao\n"
+                + "                    and tpi.tipo = 'I'\n"
+                + "            left join tabpro p \n"
+                + "                on\n"
+                + "                    p.codbarun = tpi.codbarun"
+                + "            inner join tabprofil tf\n"
+                + "                on\n"
+                + "                    p.codpro = tf.codpro and\n"
+                + "                    tpf.codfil = tf.codfil\n"
+                + "            left join tabfil tl\n"
+                + "                on\n"
+                + "                    tf.codfil = tl.codfil"
+                + "     where "
+                + "        tp.codpromocao = :codpromocao";
+
+        TypedQuery<Tabpromoitem> query = (TypedQuery<Tabpromoitem>) emFirebird.createNativeQuery(sql, "produtos-leva-paga");
+
+        query.setParameter("codpromocao", codpromocao);
+
+        return query.getResultList();
+
+    }
+
+    public void calcularPercentagemLucroLevaPaga(Tabpromocao promocaoComItens) {
+        for (Tabpromoitem tabpromoitem : promocaoComItens.getItemList()) {
+            double percentagem = 100 - CalcUtil.percentagem(promocaoComItens.getPaga(), tabpromoitem.getQuantidade());
+            double valorDaPercentagem = CalcUtil.valorDaPercentagem(tabpromoitem.getPrvapro(), percentagem);
+            double precoPromocional = tabpromoitem.getPrvapro() - valorDaPercentagem;
+            double lucroPercentual = 100.0;
+            if (tabpromoitem.getPrcustocom() != null && tabpromoitem.getPrcustocom() > 0.0) {
+                lucroPercentual = CalcUtil.lucro(precoPromocional, tabpromoitem.getPrcustocom());
+            }
+            double lucroReal = precoPromocional - tabpromoitem.getPrcustocom();
+            tabpromoitem.setPrecoPromocional(precoPromocional);
+            tabpromoitem.setLucroPercentual(lucroPercentual);
+            tabpromoitem.setLucroReal(lucroReal);
+            //tab
+        }
+    }
+
+    //********************** Promocao Desconto variavel ************************
+    public List<Tabpromoitem> getItensDaPromocaoDescontoVariavel(Integer codpromocao) {
+
+        String sql = "    select\n"
+                + "       tpi.codpromocao,\n"
+                + "       tpf.codfil,\n"
+                + "       tl.nomfil,\n"
+                + "       tpi.codpro,\n"
+                + "       tpi.codbarun,\n"
+                + "       tpi.quantidade,\n"
+                + "       tp.desconto,\n"
+                + "       tpi.descpro,\n"
+                + "       tf.prvapro,\n"
+                + "       tf.prcustocom"
+                + "    from\n"
+                + "        tabpromocaofilial tpf\n"
+                + "            right join tabpromocao tp\n"
+                + "                on\n"
+                + "                    tp.codpromocao = tpf.codpromocao\n"
+                + "            left join tabpromoitem tpi\n"
+                + "                on\n"
+                + "                    tpi.codpromocao = tp.codpromocao\n"
+                + "            left join tabpro p \n"
+                + "                on\n"
+                + "                    p.codbarun = tpi.codbarun"
+                + "            inner join tabprofil tf\n"
+                + "                on\n"
+                + "                    p.codpro = tf.codpro and\n"
+                + "                    tpf.codfil = tf.codfil\n"
+                + "            left join tabfil tl\n"
+                + "                on\n"
+                + "                    tf.codfil = tl.codfil"
+                + "   where "
+                + "       tp.codpromocao = :codpromocao";
+
+        TypedQuery<Tabpromoitem> query = (TypedQuery<Tabpromoitem>) emFirebird.createNativeQuery(sql, "produtos-desconto-variavel");
+
+        query.setParameter("codpromocao", codpromocao);
+
+        return query.getResultList();
+
+    }
+
+    public void calcularPercentagemLucroDescontoVariavel(Tabpromocao promocaoComItens) {
+        for (Tabpromoitem tabpromoitem : promocaoComItens.getItemList()) {
+            double valorDoDesconto = CalcUtil.valorDaPercentagem(tabpromoitem.getPrvapro(), tabpromoitem.getDesconto());
+            double precoPromocional = tabpromoitem.getPrvapro() - valorDoDesconto;
+            double lucroPercentual = 100.0;
+            if (tabpromoitem.getPrcustocom() != null && tabpromoitem.getPrcustocom() > 0.0) {
+                lucroPercentual = CalcUtil.lucro(precoPromocional, tabpromoitem.getPrcustocom());
+            }
+            double lucroReal = precoPromocional - tabpromoitem.getPrcustocom();
+            tabpromoitem.setPrecoPromocional(precoPromocional);
+            tabpromoitem.setLucroPercentual(lucroPercentual);
+            tabpromoitem.setLucroReal(lucroReal);
+        }
+    }
+
+    //************************* Promocao Preço Fixo ****************************
+    public List<Tabpromoitem> getItensDaPromocaoPrecoFixo(Integer codpromocao) {
+        String sql = "select\n"
+                + "       tpi.codpromocao,\n"
+                + "       tpf.codfil,\n"
+                + "       tl.nomfil,\n"
+                + "       tpi.codpro,\n"
+                + "       tpi.codbarun,\n"
+                + "       tpi.quantidade,\n"
+                + "       tp.preco,\n"
+                + "       tpi.descpro,\n"
+                + "       tf.prvapro,\n"
+                + "       tf.pratpro,"
+                + "       tf.prcustocom"
+                + "    from\n"
+                + "        tabpromocaofilial tpf\n"
+                + "            right join tabpromocao tp\n"
+                + "                on\n"
+                + "                    tp.codpromocao = tpf.codpromocao\n"
+                + "                    and tp.tipo = 5\n"
+                + "            left join tabpromoitem tpi\n"
+                + "                on\n"
+                + "                    tpi.codpromocao = tp.codpromocao\n"
+                + "            left join tabpro p \n"
+                + "                on\n"
+                + "                    p.codbarun = tpi.codbarun"
+                + "            inner join tabprofil tf\n"
+                + "                on\n"
+                + "                    p.codpro = tf.codpro and\n"
+                + "                    tpf.codfil = tf.codfil\n"
+                + "             left join tabfil tl\n"
+                + "                on\n"
+                + "                    tf.codfil = tl.codfil"
+                + "    where\n"
+                + "       tp.codpromocao = :codpromocao";
+
+        TypedQuery<Tabpromoitem> query = (TypedQuery<Tabpromoitem>) emFirebird.createNativeQuery(sql, "produtos-preco-fixo");
+
+        query.setParameter("codpromocao", codpromocao);
+
+        return query.getResultList();
+    }
+
+    public void calcularPercentagemPrecoFixo(Tabpromocao promocaoComItens) {
+        for (Tabpromoitem tabpromoitem : promocaoComItens.getItemList()) {
+            double lucroPercentual = 100.0;
+            if (tabpromoitem.getPrcustocom() != null && tabpromoitem.getPrcustocom() > 0.0) {
+                lucroPercentual = CalcUtil.lucro(promocaoComItens.getPreco(), tabpromoitem.getPrcustocom());
+            }
+            double lucroReal = promocaoComItens.getPreco() - tabpromoitem.getPrcustocom();
+            tabpromoitem.setPrecoPromocional(promocaoComItens.getPreco());
+            tabpromoitem.setLucroPercentual(lucroPercentual);
+            tabpromoitem.setLucroReal(lucroReal);
+        }
+    }
+
+    //************************ Promocao Desconto Fixo **************************
+    public List<Tabpromoitem> getItensDaPromocaoDescontoFixo(Integer codpromocao) {
+        String sql = "select\n"
+                + "       tpi.codpromocao,\n"
+                + "       tpf.codfil,\n"
+                + "       tl.nomfil,\n"
+                + "       tpi.codpro,\n"
+                + "       tpi.codbarun,\n"
+                + "       tpi.quantidade,\n"
+                + "       tp.desconto,\n"
+                + "       tpi.descpro,\n"
+                + "       tf.prvapro,"
+                + "       tf.prcustocom"
+                + "    from\n"
+                + "        tabpromocaofilial tpf\n"
+                + "            right join tabpromocao tp\n"
+                + "                on\n"
+                + "                    tp.codpromocao = tpf.codpromocao\n"
+                + "                    and tp.tipo = 6\n"
+                + "            left join tabpromoitem tpi\n"
+                + "                on\n"
+                + "                    tpi.codpromocao = tp.codpromocao\n"
+                + "            left join tabpro p \n"
+                + "                on\n"
+                + "                    p.codbarun = tpi.codbarun"
+                + "            inner join tabprofil tf\n"
+                + "                on\n"
+                + "                    p.codpro = tf.codpro and\n"
+                + "                    tpf.codfil = tf.codfil\n"
+                + "            left join tabfil tl\n"
+                + "                on\n"
+                + "                    tf.codfil = tl.codfil"
+                + "    where\n"
+                + "       tp.codpromocao = :codpromocao";
+
+        TypedQuery<Tabpromoitem> query = (TypedQuery<Tabpromoitem>) emFirebird.createNativeQuery(sql, "produtos-desconto-variavel");
+
+        query.setParameter("codpromocao", codpromocao);
+
+        return query.getResultList();
+    }
+
+    public void calcularPercentagemDescontoFixo(Tabpromocao promocaoComItens) {
+        for (Tabpromoitem tabpromoitem : promocaoComItens.getItemList()) {
+            double precoTotal = tabpromoitem.getPrvapro();
+            double precoPromocional = precoTotal - promocaoComItens.getDesconto();
+            double lucroPercentual = 100.0;
+            if (tabpromoitem.getPrcustocom() != null && tabpromoitem.getPrcustocom() > 0.0) {
+                lucroPercentual = CalcUtil.lucro(precoPromocional, tabpromoitem.getPrcustocom());
+            }
+            tabpromoitem.setPrecoPromocional(precoPromocional);
+            tabpromoitem.setLucroPercentual(lucroPercentual);
+            tabpromoitem.setLucroReal(precoPromocional - tabpromoitem.getPrcustocom());
+        }
     }
 
     public Tabpromocao create(Tabpromocao obj) throws Exception {
@@ -162,6 +488,7 @@ public class TabpromocaoService {
         return obj;
     }
 
+    //**************************************************************************
     private int getCodMax() {
 
         String hql = "SELECT MAX(t.codpromocao) "

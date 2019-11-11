@@ -1,6 +1,7 @@
 
 package br.com.interagese.promocao.controllers;
 
+import br.com.interagese.erplibrary.Utils;
 import br.com.interagese.postgres.dtos.StatusSincronizadorDto;
 import br.com.interagese.promocao.service.SincronizadorService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,19 @@ public class SincronizadorController {
         return service.getStatus();
     }
     
+    @PostMapping(path = "/venda/start")
+    public String startVenda(){
+        
+        new Thread(service::sincronizarVendas).start();
+        return Utils.serializar("OK");
+    }
+    
+    @PostMapping(path = "/promocao/start")
+    public String startPromocao(){
+        new Thread(service::sincronizarPromocao).start();
+        return Utils.serializar("OK");
+    }
+    
     @PostMapping(path = "/stop")
     public void stop(){
         service.finalizarSincronizacao();
@@ -28,7 +42,7 @@ public class SincronizadorController {
     
     @PostMapping(path = "/start")
     public void start(){
-        service.iniciarTransmissao();
+        service.iniciarSincronizacao();
     }
     
 }
