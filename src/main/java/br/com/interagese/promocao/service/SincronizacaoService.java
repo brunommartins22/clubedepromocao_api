@@ -16,37 +16,25 @@ public class SincronizacaoService {
     @PersistenceContext(unitName = "default")
     private EntityManager em;
 
-    public Date getDataDaUltimaSincronizacaoDeVenda(Integer codfil) {
+    public Date getDataDaUltimaSincronizacaoDeVenda(Integer codfil) throws NoResultException{
 
         String hql = "SELECT s.data FROM SincronizacaoVenda s WHERE s.id = "
                 + "(SELECT MAX(s.id) FROM SincronizacaoVenda s WHERE s.codigoFilial = :codfil) ";
 
-        try {
-
             return em.createQuery(hql, Date.class)
                     .setParameter("codfil", codfil)
                     .getSingleResult();
 
-        } catch (NoResultException e) {
-            return new Date();
-        }
-
     }
     
-    public Date getDataDaUltimaSincronizacaoDeFechamento(Integer codfil) {
+    public Date getDataDaUltimaSincronizacaoDeFechamento(Integer codfil) throws NoResultException{
 
         String hql = "SELECT s.data FROM SincronizacaoFechamento s WHERE s.id = "
                 + "(SELECT MAX(s.id) FROM SincronizacaoFechamento s WHERE s.codigoFilial = :codfil) ";
 
-        try {
-
             return em.createQuery(hql, Date.class)
                     .setParameter("codfil", codfil)
                     .getSingleResult();
-
-        } catch (NoResultException e) {
-            return new Date();
-        }
 
     }
 

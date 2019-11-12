@@ -7,6 +7,8 @@ import br.com.interagese.promocao.enuns.Envio;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextRefreshedEvent;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SincronizadorService {
+
+    private final static Logger LOGGER = LogManager.getFormatterLogger(SincronizadorService.class);
 
     @Autowired
     private TabpromocaoService tabpromocaoService;
@@ -32,7 +36,7 @@ public class SincronizadorService {
     private Envio envio = Envio.NADA;
     private ScheduledFuture sincronizacaoAtual;
 
-    public void iniciarTransmissao() {
+    public void iniciarSincronizacao() {
 
         finalizarSincronizacao();
 
@@ -50,42 +54,107 @@ public class SincronizadorService {
             try {
                 Date dataDaSincronizacaoAtual = new Date();
                 System.out.println("Executando: " + dataDaSincronizacaoAtual);
+
+                LOGGER.info("Iniciando sincronizacao: " + dataDaSincronizacaoAtual);
+
                 Configuracao configuracao = configuracaoService.findById(1L);
                 List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
-//              
-                envio = Envio.PROMOCAO;
-                if (executando) {
-                    Thread.sleep(5000);
-                    //tabpromocaoService.baixarPromocoes(configuracaoItems);
+
+                if (!configuracaoItems.isEmpty()) {
+
+                    envio = Envio.PROMOCAO;
+                    if (executando) {
+                        tabpromocaoService.baixarPromocoes(configuracaoItems);
+                    }
+
+                    envio = Envio.VENDA;
+                    if (executando) {
+                        Thread.sleep(15000);
+                        //notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
+                        // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
+                    }
+
+                    envio = Envio.FECHAMENTO;
+                    if (executando) {
+                        Thread.sleep(5000);
+                        //fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
+
+                    }
+
+                } else {
+                    LOGGER.warn("Configurações scanntech não informadas!");
                 }
-
-                envio = Envio.VENDA;
-                if (executando) {
-                    //Thread.sleep(15000);
-                    //notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
-                   // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
-                }
-
-                envio = Envio.FECHAMENTO;
-                if (executando) {
-                    Thread.sleep(5000);
-                    //fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
-
-                }
-
-                System.out.println("Sincronização finalizada: " + dataDaSincronizacaoAtual);
+//             
+                envio = Envio.NADA;
+                LOGGER.info("Sincronização finalizada");
             } catch (Exception ex) {
+                LOGGER.error("Erro ao realizar sincronização: ", ex);
+                envio = Envio.ERRO;
                 ex.printStackTrace();
             } finally {
-                envio = Envio.NADA;
                 executando = false;
             }
         }
     }
 
+    public void sincronizarVendas() {
+        if (!executando) {
+            executando = true;
+            Configuracao configuracao = configuracaoService.findById(1L);
+            List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
+
+            try {
+                envio = Envio.VENDA;
+                if (!configuracaoItems.isEmpty()) {
+                    this.notasaiService.setExecutando(true);
+                    this.notasaiService.enviarVendas(configuracaoItems, new Date());
+                }
+                
+                envio = Envio.NADA;
+                
+                LOGGER.info("Sincronização de vendas finalizada");
+                
+            } catch (Exception ex) {
+                envio = Envio.ERRO;
+                ex.printStackTrace();
+                LOGGER.error("Erro ao realizar sincronização: ", ex);
+            }finally{
+                executando = false;
+            }
+
+        }
+    }
+    
+    public void sincronizarPromocao() {
+        if (!executando) {
+            executando =true;
+            Configuracao configuracao = configuracaoService.findById(1L);
+            List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
+
+            try {
+                envio = Envio.PROMOCAO;
+                if (!configuracaoItems.isEmpty()) {
+                    this.tabpromocaoService.baixarPromocoes(configuracaoItems);
+                }
+                
+                envio = Envio.NADA;
+                
+                LOGGER.info("Sincronização de promoção finalizada");
+                
+            } catch (Exception ex) {
+                envio = Envio.ERRO;
+                ex.printStackTrace();
+                LOGGER.error("Erro ao realizar sincronização: ", ex);
+            }finally{
+                executando = false;
+            }
+
+        }
+    }
+
     @EventListener
     public void onApplicationEvent(ContextRefreshedEvent e) {
-        iniciarTransmissao();
+        iniciarSincronizacao();
     }
 
     public void finalizarSincronizacao() {

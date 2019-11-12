@@ -549,14 +549,18 @@ public class TabpromocaoService {
 
     @Transactional("multiTransaction")
     public void baixarPromocoes(List<ConfiguracaoItem> configuracoes) throws Exception {
+        try {
+            int promocoesBaixadas = 0;
 
-        int promocoesBaixadas = 0;
+            promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.ACEITA);
+            promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.PENDENTE);
+            promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.REJEITADA);
 
-        promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.ACEITA);
-        promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.PENDENTE);
-        promocoesBaixadas += baixarPromocoes(configuracoes, EstadoPromocao.REJEITADA);
+            inserirSincronizacao(promocoesBaixadas);
+        } catch (Exception e) {
+            throw new Exception("Erro ao baixar promoções: ", e);
+        }
 
-        inserirSincronizacao(promocoesBaixadas);
     }
 
     private void vincularPromocoesAFilial(int codfil, List<Tabpromocao> promocoes) {

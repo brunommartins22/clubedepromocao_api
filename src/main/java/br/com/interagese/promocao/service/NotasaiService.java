@@ -10,6 +10,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import javax.persistence.EntityManager;
+import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
@@ -42,108 +43,146 @@ public class NotasaiService {
     @Transactional(value = "integradoTransaction")
     public void enviarVendas(List<ConfiguracaoItem> configItens, Date dataDaSincronizacaoAtual) throws Exception {
 
-        for (ConfiguracaoItem configuracao : configItens) {
-            for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
+        try {
+            for (ConfiguracaoItem configuracao : configItens) {
+                for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
 
-                int codfil = filialScanntech1.getCodigoFilial().intValue();
-                int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
+                    int codfil = filialScanntech1.getCodigoFilial().intValue();
+                    int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
-                Date dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda(codfil);
-
-                int vendas = getQuantidadeDeVendasParaEnvio(
-                        dataDaUltimaSincronizacao,
-                        dataDaSincronizacaoAtual,
-                        codfil
-                );
-
-                if (vendas > 0) {
-                    int lote = 100;
-                    int loops = vendas / lote;
-                    if ((vendas % lote) != 0) {
-                        loops++;
+                    Date dataDaUltimaSincronizacao;
+                    try {
+                        dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda(codfil);
+                    } catch (NoResultException e) {
+                        //Preenche o valor com a data atual e cancela a sincronizacao
+                        dataDaUltimaSincronizacao = dataDaSincronizacaoAtual;
+                        this.sincronizacaoService.insertSincronizacaoVenda(codfil, dataDaUltimaSincronizacao);
+                        return;
                     }
 
-                    for (int i = 0; (i < loops && executando); i++) {
-                        List<Notasai> vendasParaEnvio = getVendasParaEnvio(
-                                dataDaUltimaSincronizacao,
-                                dataDaSincronizacaoAtual,
-                                codfil,
-                                i == 0 ? i : i * lote,
-                                lote
-                        );
+                    int vendas = getQuantidadeDeVendasParaEnvio(
+                            dataDaUltimaSincronizacao,
+                            dataDaSincronizacaoAtual,
+                            codfil
+                    );
 
-                        for (int j = 0; (j < vendasParaEnvio.size() && executando); j++) {
+                    if (vendas > 0) {
+                        int lote = 100;
+                        int loops = vendas / lote;
+                        if ((vendas % lote) != 0) {
+                            loops++;
+                        }
 
-                            Notasai venda = vendasParaEnvio.get(j);
+                        for (int i = 0; (i < loops && executando); i++) {
+                            List<Notasai> vendasParaEnvio = getVendasParaEnvio(
+                                    dataDaUltimaSincronizacao,
+                                    dataDaSincronizacaoAtual,
+                                    codfil,
+                                    i == 0 ? i : i * lote,
+                                    lote
+                            );
 
-                            Double descontoTotal = venda.getVldescnot();
-                            Double acrescimoTotal = venda.getAcrescimentoTotal();
+                            for (int j = 0; (j < vendasParaEnvio.size() && executando); j++) {
 
-                            //Adiciona o subsidio
-                            if (venda.getVlsubsidiototal() != null) {
-                                descontoTotal += venda.getVlsubsidiototal();
-                            }
+                                Notasai venda = vendasParaEnvio.get(j);
 
-                            //E o desconto/acrescimo no item
-                            //Detalhes da lógica de preenchimento estão no construtor
-                            //da classe notasaiitens
-                            for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
-                                descontoTotal += notasaiitens.getDescontoNoItem();
-                                acrescimoTotal += notasaiitens.getAcrescimoNoItem();
-                            }
+                                Double descontoTotal = venda.getVldescnot();
+                                Double acrescimoTotal = venda.getAcrescimentoTotal();
 
-                            venda.setDescontoTotal(descontoTotal);
-                            venda.setAcrescimentoTotal(acrescimoTotal);
-
-                            try {
-                                ResponseEntity<String> response = restClient.enviarVenda(
-                                        configuracao,
-                                        venda,
-                                        codscanntech,
-                                        venda.getNrcaixa()
-                                );
-
-                                int statusCode = response.getStatusCodeValue();
-                                String mensagem = "";
-
-                                if (statusCode == 200
-                                        || statusCode == 208) {
-
-                                    venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
-                                    self.update(venda);
-                                    logService.logVenda(venda.getNumeroCupom(), venda.getNrcontr(), venda.getNrcaixa(), venda.getCodfil());
-
-                                } else if (statusCode == 408
-                                        || (statusCode >= 500 && statusCode <= 599)) {
-
-                                    mensagem = response.getBody();
-
-                                    venda.setObsscanntech(mensagem);
-                                    venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
-                                    self.update(venda);
-                                    logService.logVendaComErro(venda.getNumeroCupom(), venda.getNrcontr(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
-
-                                } else {
-                                    mensagem = response.getBody();
-                                    venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
-                                    venda.setObsscanntech(mensagem);
-                                    self.update(venda);
-                                    logService.logVendaComErro(venda.getNumeroCupom(), venda.getNrcontr(), venda.getObsscanntech(), venda.getNrcaixa(), venda.getCodfil());
+                                //Adiciona o subsidio
+                                if (venda.getVlsubsidiototal() != null) {
+                                    descontoTotal += venda.getVlsubsidiototal();
                                 }
 
-                            } catch (Exception e) {
-                                throw e;
+                                //E o desconto/acrescimo no item se não tiver promocao
+                                for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
+                                    //Detalhes da lógica de preenchimento estão no construtor
+                                    //da classe notasaiitens
+                                    if (notasaiitens.getDescontoPromo() == 0.0) {
+                                        descontoTotal += notasaiitens.getDescontoNoItem();
+                                        acrescimoTotal += notasaiitens.getAcrescimoNoItem();
+                                    }
+
+                                }
+
+                                venda.setDescontoTotal(descontoTotal);
+                                venda.setAcrescimentoTotal(acrescimoTotal);
+
+                                try {
+                                    ResponseEntity<String> response = restClient.enviarVenda(
+                                            configuracao,
+                                            venda,
+                                            codscanntech,
+                                            venda.getNrcaixa()
+                                    );
+
+                                    int statusCode = response.getStatusCodeValue();
+                                    String mensagem = "";
+
+                                    if (statusCode == 200
+                                            || statusCode == 208) {
+
+                                        venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
+                                        self.update(venda);
+                                        logService.logVenda(
+                                                venda.getNumeroCupom(),
+                                                venda.getNrcontr(),
+                                                venda.getNrcaixa(),
+                                                venda.getCodfil(),
+                                                codscanntech,
+                                                venda.isCancelada()
+                                        );
+
+                                    } else if (statusCode == 408
+                                            || (statusCode >= 500 && statusCode <= 599)) {
+
+                                        mensagem = response.getBody();
+
+                                        venda.setObsscanntech(mensagem);
+                                        venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
+                                        self.update(venda);
+                                        logService.logVendaComErro(
+                                                venda.getNumeroCupom(),
+                                                venda.getNrcontr(),
+                                                venda.getObsscanntech(),
+                                                venda.getNrcaixa(),
+                                                venda.getCodfil(),
+                                                codscanntech,
+                                                venda.isCancelada()
+                                        );
+
+                                    } else {
+                                        mensagem = response.getBody();
+                                        venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
+                                        venda.setObsscanntech(mensagem);
+                                        self.update(venda);
+                                        logService.logVendaComErro(
+                                                venda.getNumeroCupom(),
+                                                venda.getNrcontr(),
+                                                venda.getObsscanntech(),
+                                                venda.getNrcaixa(),
+                                                venda.getCodfil(),
+                                                codscanntech,
+                                                venda.isCancelada()
+                                        );
+                                    }
+
+                                } catch (Exception e) {
+                                    throw e;
+                                }
+
                             }
 
                         }
 
-                    }
-                    
-                    sincronizacaoService.insertSincronizacaoVenda(codfil, dataDaSincronizacaoAtual);
-                    
-                }
+                        sincronizacaoService.insertSincronizacaoVenda(codfil, dataDaSincronizacaoAtual);
 
+                    }
+
+                }
             }
+        } catch (Exception e) {
+            throw new Exception("Erro ao enviar vendas", e);
         }
 
     }
@@ -212,7 +251,8 @@ public class NotasaiService {
                 + "    sum(case when n.tpdesacrite = 'D' then n.vldesacrite * n.qtdvend else 0 end) as descontoite,"
                 + "    sum(case when n.tpdesacrite = 'A' then n.vldesacrite * n.qtdvend else 0 end) as acrescimoite,"
                 + "    sum(case when n.tpdesacrnot = 'D' then (n.vldesacrnot + n.vlsubsidio) else 0 end) as descontonot,"
-                + "    sum(case when n.tpdesacrnot = 'A' then n.vldesacrnot else 0 end) as acrescimonot "
+                + "    sum(case when n.tpdesacrnot = 'A' then n.vldesacrnot else 0 end) as acrescimonot, "
+                + "    sum(n.vlsubsidio) as descontopromo "
                 + "from"
                 + "    notasaiitens n"
                 + "        left join"
