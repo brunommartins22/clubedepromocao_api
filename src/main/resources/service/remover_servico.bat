@@ -1,0 +1,1 @@
+%~dp0\intererp_api-1.0-SNAPSHOT.exe uninstall

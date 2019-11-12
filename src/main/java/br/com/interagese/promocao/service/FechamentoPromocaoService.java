@@ -129,7 +129,7 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
                                 .atZone(ZoneId.systemDefault()).toLocalDate(),
                         Instant.ofEpochMilli(dataDaSincronizacaoAtual.getTime())
                                 .atZone(ZoneId.systemDefault()).toLocalDate())
-                .getDays() >= 2;
+                .getDays() >= 1;
 
     }
 

@@ -69,15 +69,14 @@ public class SincronizadorService {
 
                     envio = Envio.VENDA;
                     if (executando) {
-                        Thread.sleep(15000);
-                        //notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
+                        notasaiService.setExecutando(true);
+                        notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);;
                         // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
                     }
 
                     envio = Envio.FECHAMENTO;
                     if (executando) {
-                        Thread.sleep(5000);
-                        //fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
+                        fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
 
                     }
 

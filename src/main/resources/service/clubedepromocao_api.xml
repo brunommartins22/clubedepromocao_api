@@ -1,0 +1,9 @@
+<service>
+    <id>clubepromocao</id>
+    <name>Clube de Promoção API</name>
+    <description>Back-end do Sistema de Promoção</description>
+    <env name="MYAPP_HOME" value="%BASE%"/>
+    <executable>java</executable>
+    <arguments>-Xmx256m -jar "%BASE%\clubedepromocao_api.jar"</arguments>
+    <logmode>rotate</logmode>
+</service>
