@@ -3,6 +3,7 @@ package br.com.interagese.promocao.service;
 import br.com.interagese.postgres.models.SincronizacaoFechamento;
 import br.com.interagese.postgres.models.SincronizacaoVenda;
 import java.util.Date;
+import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
@@ -32,9 +33,15 @@ public class SincronizacaoService {
         String hql = "SELECT s.data FROM SincronizacaoFechamento s WHERE s.id = "
                 + "(SELECT MAX(s.id) FROM SincronizacaoFechamento s WHERE s.codigoFilial = :codfil) ";
 
-            return em.createQuery(hql, Date.class)
-                    .setParameter("codfil", codfil)
-                    .getSingleResult();
+        List<Date> resultList = em.createQuery(hql, Date.class)
+                .setParameter("codfil", codfil)
+                .getResultList();
+        
+        if(resultList.isEmpty()){
+            return null;
+        }
+        
+        return resultList.get(0);
 
     }
 
