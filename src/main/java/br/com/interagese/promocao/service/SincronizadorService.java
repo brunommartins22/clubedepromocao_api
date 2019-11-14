@@ -70,7 +70,7 @@ public class SincronizadorService {
                     envio = Envio.VENDA;
                     if (executando) {
                         notasaiService.setExecutando(true);
-                        notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);;
+                        notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
                         // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
                     }
 
