@@ -20,6 +20,7 @@ import javax.persistence.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
 @Service
@@ -39,6 +40,7 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
         dbDateFormat = new SimpleDateFormat("yyyy-MM-dd");
     }
 
+    @Transactional
     public void enviarFechamento(List<ConfiguracaoItem> configuracaoItems, Date dataDaSincronizacaoAtual) throws Exception {
         try {
             //Configuracao de teste
@@ -49,9 +51,9 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
                     int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
                     Date dataDaUltimaSincronizacao;
-                    try {
-                        dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento(codfil);
-                    } catch (NoResultException e) {
+
+                    dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeFechamento(codfil);
+                    if (dataDaUltimaSincronizacao == null) {
                         dataDaUltimaSincronizacao = dataDaSincronizacaoAtual;
                         this.sincronizacaoService.insertSincronizacaoFechamento(codfil, dataDaUltimaSincronizacao);
                         return;
