@@ -4,6 +4,8 @@ import br.com.interagese.postgres.dtos.StatusSincronizadorDto;
 import br.com.interagese.postgres.models.Configuracao;
 import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.promocao.enuns.Envio;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
@@ -34,6 +36,7 @@ public class SincronizadorService {
 
     private boolean executando = false;
     private Envio envio = Envio.NADA;
+    private String log = "";
     private ScheduledFuture sincronizacaoAtual;
 
     public void iniciarSincronizacao() {
@@ -49,6 +52,7 @@ public class SincronizadorService {
 
     public void executarSincronizacao() {
         if (!executando) {
+            log = "";
             executando = true;
             notasaiService.setExecutando(true);
             try {
@@ -64,19 +68,20 @@ public class SincronizadorService {
 
                     envio = Envio.PROMOCAO;
                     if (executando) {
-                        tabpromocaoService.baixarPromocoes(configuracaoItems);
+                        // tabpromocaoService.baixarPromocoes(configuracaoItems);
                     }
 
                     envio = Envio.VENDA;
                     if (executando) {
+                        new Thread().sleep(15000);
                         notasaiService.setExecutando(true);
-                        notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
+                        //notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
                         // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
                     }
 
                     envio = Envio.FECHAMENTO;
                     if (executando) {
-                        fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
+                        // fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
 
                     }
 
@@ -89,15 +94,21 @@ public class SincronizadorService {
             } catch (Exception ex) {
                 LOGGER.error("Erro ao realizar sincronização: ", ex);
                 envio = Envio.ERRO;
-                ex.printStackTrace();
+                StringWriter writer = new StringWriter();
+                PrintWriter pw = new PrintWriter(writer);
+                ex.printStackTrace(pw);
+                log = writer.toString();
+
             } finally {
                 executando = false;
             }
+
         }
     }
 
     public void sincronizarVendas() {
         if (!executando) {
+            log = "";
             executando = true;
             Configuracao configuracao = configuracaoService.findById(1L);
             List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
@@ -108,25 +119,29 @@ public class SincronizadorService {
                     this.notasaiService.setExecutando(true);
                     this.notasaiService.enviarVendas(configuracaoItems, new Date());
                 }
-                
+
                 envio = Envio.NADA;
-                
+
                 LOGGER.info("Sincronização de vendas finalizada");
-                
+
             } catch (Exception ex) {
                 envio = Envio.ERRO;
-                ex.printStackTrace();
+                StringWriter writer = new StringWriter();
+                PrintWriter pw = new PrintWriter(writer);
+                ex.printStackTrace(pw);
+                log = writer.toString();
                 LOGGER.error("Erro ao realizar sincronização: ", ex);
-            }finally{
+            } finally {
                 executando = false;
             }
 
         }
     }
-    
+
     public void sincronizarPromocao() {
         if (!executando) {
-            executando =true;
+            log = "";
+            executando = true;
             Configuracao configuracao = configuracaoService.findById(1L);
             List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
 
@@ -135,16 +150,19 @@ public class SincronizadorService {
                 if (!configuracaoItems.isEmpty()) {
                     this.tabpromocaoService.baixarPromocoes(configuracaoItems);
                 }
-                
+
                 envio = Envio.NADA;
-                
+
                 LOGGER.info("Sincronização de promoção finalizada");
-                
+
             } catch (Exception ex) {
                 envio = Envio.ERRO;
-                ex.printStackTrace();
+                StringWriter writer = new StringWriter();
+                PrintWriter pw = new PrintWriter(writer);
+                ex.printStackTrace(pw);
+                log = writer.toString();
                 LOGGER.error("Erro ao realizar sincronização: ", ex);
-            }finally{
+            } finally {
                 executando = false;
             }
 
@@ -175,7 +193,7 @@ public class SincronizadorService {
     }
 
     public StatusSincronizadorDto getStatus() {
-        return new StatusSincronizadorDto(executando, envio);
+        return new StatusSincronizadorDto(executando, envio, log);
     }
 
 }
