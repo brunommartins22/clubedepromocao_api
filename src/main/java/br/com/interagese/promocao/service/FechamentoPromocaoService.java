@@ -14,7 +14,6 @@ import java.util.Date;
 import java.util.List;
 import static java.util.stream.Collectors.*;
 import javax.persistence.EntityManager;
-import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,8 +108,9 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
                                 }
 
                                 create(fechamento);
-                                sincronizacaoService.insertSincronizacaoFechamento(codfil, dataDaSincronizacaoAtual);
                             }
+                            
+                            sincronizacaoService.insertSincronizacaoFechamento(codfil, dataDaSincronizacaoAtual);
                         }
 
                     }
@@ -157,9 +157,10 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
         }
 
         if (nrcaixa != null) {
-            hql.append(" AND (n.nrcaixa = :nrcaixa) "
-                    + "AND (n.envioscanntech = 'E') ");
+            hql.append(" AND (n.nrcaixa = :nrcaixa) ");
         }
+        
+        hql.append(" AND (n.envioscanntech = 'E') ");
 
         hql.append(" AND (n.codfil = :codfil ) ")
                 .append("        group by "

@@ -10,7 +10,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import javax.persistence.EntityManager;
-import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
@@ -41,8 +40,12 @@ public class NotasaiService {
     }
 
     @Transactional(value = "integradoTransaction")
-    public void enviarVendas(List<ConfiguracaoItem> configItens, Date dataDaSincronizacaoAtual) throws Exception {
+    public void enviarVendas(List<ConfiguracaoItem> configItens, Date dataDaPrimeiraSincronizacao) throws Exception {
 
+        if(dataDaPrimeiraSincronizacao == null){
+            throw new Exception("Data da primeira sincronização não informada");
+        }
+        
         try {
             for (ConfiguracaoItem configuracao : configItens) {
                 for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
@@ -50,19 +53,8 @@ public class NotasaiService {
                     int codfil = filialScanntech1.getCodigoFilial().intValue();
                     int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
-                    Date dataDaUltimaSincronizacao;
-                    try {
-                        dataDaUltimaSincronizacao = sincronizacaoService.getDataDaUltimaSincronizacaoDeVenda(codfil);
-                    } catch (NoResultException e) {
-                        //Preenche o valor com a data atual e cancela a sincronizacao
-                        dataDaUltimaSincronizacao = dataDaSincronizacaoAtual;
-                        this.sincronizacaoService.insertSincronizacaoVenda(codfil, dataDaUltimaSincronizacao);
-                        return;
-                    }
-
                     int vendas = getQuantidadeDeVendasParaEnvio(
-                            dataDaUltimaSincronizacao,
-                            dataDaSincronizacaoAtual,
+                            dataDaPrimeiraSincronizacao,
                             codfil
                     );
 
@@ -75,8 +67,7 @@ public class NotasaiService {
 
                         for (int i = 0; (i < loops && executando); i++) {
                             List<Notasai> vendasParaEnvio = getVendasParaEnvio(
-                                    dataDaUltimaSincronizacao,
-                                    dataDaSincronizacaoAtual,
+                                    dataDaPrimeiraSincronizacao,
                                     codfil,
                                     i == 0 ? i : i * lote,
                                     lote
@@ -175,7 +166,7 @@ public class NotasaiService {
 
                         }
 
-                        sincronizacaoService.insertSincronizacaoVenda(codfil, dataDaSincronizacaoAtual);
+                        sincronizacaoService.insertSincronizacaoVenda(codfil, dataDaPrimeiraSincronizacao);
 
                     }
 
@@ -187,46 +178,43 @@ public class NotasaiService {
 
     }
 
-    private int getQuantidadeDeVendasParaEnvio(Date dataInicio, Date dataFim, int codfil) {
+    private int getQuantidadeDeVendasParaEnvio(Date dataPrimeiraSincronizacao, int codfil) {
 
         String hql = "SELECT "
                 + " COUNT(n) "
                 + "FROM Notasai n "
                 + "WHERE "
                 + "(n.codfil = :codfil) "
-                + "AND (((n.dthrlanc BETWEEN :inicio AND :fim) "
+                + "AND (((n.dthrlanc > :fim) "
                 + "AND (n.envioscanntech IS NULL) "
-                + "AND (n.situacao IN ('N', 'E')) "
-                + "AND (n.envioscanntech IS NULL)) "
+                + "AND (n.situacao IN ('N', 'E'))) "
                 + "OR (n.envioscanntech = 'P'))";
 
         TypedQuery<Number> query = emFirebird.createQuery(hql, Number.class)
                 .setParameter("codfil", codfil)
-                .setParameter("inicio", dataInicio)
-                .setParameter("fim", dataFim);
+               // .setParameter("inicio", dataInicio)
+                .setParameter("fim", dataPrimeiraSincronizacao);
 
         return query.getSingleResult().intValue();
 
     }
 
-    private List<Notasai> getVendasParaEnvio(Date dataInicio, Date dataFim, int codfil, int inicio, int tamanhoDaPagina) {
+    private List<Notasai> getVendasParaEnvio(Date dataPrimeiraSincronizacao, int codfil, int inicio, int tamanhoDaPagina) {
 
         String hql = "SELECT "
                 + " n "
                 + "FROM Notasai n "
                 + "WHERE "
                 + "(n.codfil = :codfil) "
-                + "AND (((n.dthrlanc BETWEEN :inicio AND :fim) "
-                + "AND (n.envioscanntech IS NULL) "
-                + "AND (n.situacao IN ('N', 'E')) "
-                + "AND (n.envioscanntech IS NULL)) "
+                + "AND (((n.envioscanntech IS NULL) "
+                + "AND (n.dthrlanc > :fim) "
+                + "AND (n.situacao IN ('N', 'E'))) "
                 + "OR (n.envioscanntech = 'P')) "
                 + "ORDER BY n.dthrlanc ";
 
         TypedQuery<Notasai> query = emFirebird.createQuery(hql, Notasai.class);
         query.setParameter("codfil", codfil);
-        query.setParameter("inicio", dataInicio);
-        query.setParameter("fim", dataFim);
+        query.setParameter("fim", dataPrimeiraSincronizacao);
 
         //query.setFirstResult(inicio);
         query.setMaxResults(tamanhoDaPagina);

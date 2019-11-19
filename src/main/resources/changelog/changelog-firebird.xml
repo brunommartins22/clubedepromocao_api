@@ -133,7 +133,7 @@
     <changeSet id="ADD COLUMN CODPROMO ON NOTASAIITENS" author="Promoção - José" runOnChange="true">
         <preConditions onFail="MARK_RAN">
             <not>
-                <columnExists tableName="NOTASAIITENS" columnName="CODPROMOCAO"/>
+                <columnExists tableName="NOTASAIITENS" columnName="CODPROMO"/>
             </not>
         </preConditions>
         <addColumn tableName="NOTASAIITENS" schemaName="">

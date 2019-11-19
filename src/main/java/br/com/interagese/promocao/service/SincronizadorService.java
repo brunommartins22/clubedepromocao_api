@@ -70,7 +70,7 @@ public class SincronizadorService {
                     envio = Envio.VENDA;
                     if (executando) {
                         notasaiService.setExecutando(true);
-                        notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
+                        notasaiService.enviarVendas(configuracaoItems, configuracao.getPrimeiraSincronizacao());
                         // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
                     }
 
@@ -106,7 +106,7 @@ public class SincronizadorService {
                 envio = Envio.VENDA;
                 if (!configuracaoItems.isEmpty()) {
                     this.notasaiService.setExecutando(true);
-                    this.notasaiService.enviarVendas(configuracaoItems, new Date());
+                    this.notasaiService.enviarVendas(configuracaoItems, configuracao.getPrimeiraSincronizacao());
                 }
                 
                 envio = Envio.NADA;

@@ -17,7 +17,7 @@
         </sql> 
     </changeSet>
     
-    <changeSet id="Criar Confuracao inicial" author="Promoção - José">
+    <changeSet id="Criar Configuracao inicial" author="Promoção - José" runOnChange="true">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
                 SELECT
@@ -26,9 +26,9 @@
         </preConditions>
         <sql splitStatements="true">
             INSERT INTO clubedepromocao.configuracao
-            (id, intervalo_sincronizacao)
+            (id, intervalo_sincronizacao, primeira_sincronizacao)
             VALUES
-            (1, 15);
+            (1, 15, now());
         </sql> 
     </changeSet>
 
