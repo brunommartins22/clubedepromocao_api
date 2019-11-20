@@ -383,6 +383,7 @@ public class NotasaiService {
         emFirebird.merge(notasai);
     }
 
+    @Transactional(value = "integradoTransaction")
     public void desmarcarVendas(Date dataInicial, Date dataFinal) {
 
         String sql = "UPDATE notasai SET envioscanntech = null ";
@@ -392,12 +393,12 @@ public class NotasaiService {
         } else if (dataInicial == null && dataFinal != null) {
             sql += " WHERE dtemissao = '" + dbDateFormat.format(dataFinal) + "' ";
         } else if(dataInicial != null && dataFinal != null) {
-            sql += " WHERE dtemissao BETWEEN  '" + dbDateFormat.format(dataFinal) + "' AND '" + dbDateFormat.format(dataFinal) + "' ";
+            sql += " WHERE dtemissao BETWEEN  '" + dbDateFormat.format(dataInicial) + "' AND '" + dbDateFormat.format(dataFinal) + "' ";
         }else{
             throw new RuntimeException("Não foi informado nenhuma data.");
         }
 
-        emFirebird.createQuery(sql)
+        emFirebird.createNativeQuery(sql)
                 .executeUpdate();
 
     }

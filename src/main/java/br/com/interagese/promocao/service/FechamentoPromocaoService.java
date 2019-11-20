@@ -185,8 +185,6 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
                             create(fechamento);
                         }
-
-                        sincronizacaoService.insertSincronizacaoFechamento(codfil, new Date());
                     }
 
                 }
@@ -210,11 +208,11 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
     private List<FechamentoPromocao> getFechamentos(Date dataInicio, Date dataFim, Integer codfil, Integer nrcaixa, boolean reenvio) {
 
-        StringBuilder hql = new StringBuilder("select "
+        StringBuilder sql = new StringBuilder("select "
                 + "    codfil as codfil, "
                 + "    nrcaixa as nrcaixa, "
                 + "    dtemissao as data_fechamento, "
-                + "    sum(case when (n.situacao in ('N', 'A', 'E') OR (n.situacao = 'C' AND (n.nrcontr02 IS NOT NULL AND n.nrcontr02 <> '')) ) then n.totgeral else 0 end) as valor_total_vendas, "
+                + "    sum(case when (n.situacao in ('N', 'E') ) then n.totgeral else 0 end) as valor_total_vendas, "
                 + "    sum(case when (n.situacao in ('N', 'A', 'E') OR (n.situacao = 'C' AND (n.nrcontr02 IS NOT NULL AND n.nrcontr02 <> '')) ) then 1 else 0 end) as quantidade_vendas, "
                 + "    sum(case when (n.situacao = 'A' OR (n.situacao = 'C' AND (n.nrcontr02 IS NOT NULL AND n.nrcontr02 <> '')) ) then n.totgeral else 0 end) as valor_total_cancelamentos, "
                 + "    sum(case when (n.situacao = 'A' OR (n.situacao = 'C' AND (n.nrcontr02 IS NOT NULL AND n.nrcontr02 <> '')) ) then 1 else 0 end) as quantidade_cancelamentos "
@@ -224,16 +222,16 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
         //Se for reenvio de uma data
         if (reenvio && (dataFim == null && dataInicio != null)) {
-            hql.append(" n.dtemissao = '").append(dbDateFormat.format(dataInicio)).append("' ");
+            sql.append(" n.dtemissao = '").append(dbDateFormat.format(dataInicio)).append("' ");
             
         //Se não for reenvio de um periodo
         } else if(!reenvio && (dataFim != null && dataInicio != null)){
-            hql.append(" (n.dtemissao >= '").append(dbDateFormat.format(dataInicio))
+            sql.append(" (n.dtemissao >= '").append(dbDateFormat.format(dataInicio))
                     .append("' AND n.dtemissao < '").append(dbDateFormat.format(dataFim)).append("') ");
             
         //Se for reenvio de um periodo    
-        }else if(!reenvio && (dataFim != null && dataInicio != null)){
-            hql.append(" (n.dtemissao BETWEEN '").append(dbDateFormat.format(dataInicio))
+        }else if(reenvio && (dataFim != null && dataInicio != null)){
+            sql.append(" (n.dtemissao BETWEEN '").append(dbDateFormat.format(dataInicio))
                     .append("' AND '").append(dbDateFormat.format(dataFim)).append("') ");
         
         }else{
@@ -241,18 +239,18 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
         }
 
         if (nrcaixa != null) {
-            hql.append(" AND (n.nrcaixa = :nrcaixa) ");
+            sql.append(" AND (n.nrcaixa = :nrcaixa) ");
         }
 
-        hql.append(" AND (n.envioscanntech = 'E') ");
+        sql.append(" AND (n.envioscanntech = 'E') ");
 
-        hql.append(" AND (n.codfil = :codfil ) ")
+        sql.append(" AND (n.codfil = :codfil ) ")
                 .append("        group by "
                         + "            n.dtemissao, "
                         + "            n.codfil, "
                         + "            n.nrcaixa");
 
-        Query query = emFirebird.createNativeQuery(hql.toString());
+        Query query = emFirebird.createNativeQuery(sql.toString());
         query.setParameter("codfil", codfil);
 
         if (nrcaixa != null) {

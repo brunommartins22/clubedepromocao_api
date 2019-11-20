@@ -6,6 +6,7 @@ import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.promocao.enuns.Envio;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -69,20 +70,18 @@ public class SincronizadorService {
 
                     envio = Envio.PROMOCAO;
                     if (executando) {
-                        // tabpromocaoService.baixarPromocoes(configuracaoItems);
+                       tabpromocaoService.baixarPromocoes(configuracaoItems);
                     }
 
                     envio = Envio.VENDA;
                     if (executando) {
-                        new Thread().sleep(15000);
                         notasaiService.setExecutando(true);
-                        //notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
-                        // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
+                        notasaiService.enviarVendas(configuracaoItems, configuracao.getPrimeiraSincronizacao());
                     }
 
                     envio = Envio.FECHAMENTO;
                     if (executando) {
-                        // fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
+                        fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
 
                     }
 
@@ -170,7 +169,7 @@ public class SincronizadorService {
         }
     }
 
-    public void reenviarFechamento(Map map) {
+    public void reenviarFechamento(Date dataInicio, Date dataFim, Integer nrcaixa) {
         if (!executando) {
             executando = true;
             Configuracao configuracao = configuracaoService.findById(1L);
@@ -179,12 +178,9 @@ public class SincronizadorService {
             try {
                 envio = Envio.FECHAMENTO;
                 if (!configuracaoItems.isEmpty()) {
-                    
-                    Date dataInicio = null;
-                    Date dataFim = null;
-                    Integer nrcaixa = null;
-                    
-                    Thread.sleep(15000);
+
+                    fechamentoPromocaoService.reenviarFechamento(configuracaoItems, dataInicio, dataFim, nrcaixa);
+
                 }
 
                 envio = Envio.NADA;
@@ -202,14 +198,10 @@ public class SincronizadorService {
         }
     }
 
-    public void desmarcarVendas(Map map) throws Exception {
+    public void desmarcarVendas(Date dataInicio, Date dataFim) throws Exception {
 
         try {
-            //Falta pegar as datas do map
-            Date dataInicial = null;
-            Date dataFinal = null;
-            
-            notasaiService.desmarcarVendas(dataInicial, dataFinal);
+            notasaiService.desmarcarVendas(dataInicio, dataFim);
         } catch (Exception ex) {
             ex.printStackTrace();
             LOGGER.error("Erro ao desmarcar vendas: ", ex);
