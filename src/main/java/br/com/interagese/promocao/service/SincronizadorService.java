@@ -6,6 +6,7 @@ import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.promocao.enuns.Envio;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class SincronizadorService {
     private boolean executando = false;
     private Envio envio = Envio.NADA;
     private String log = "";
+    private SimpleDateFormat dateFrontFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     private ScheduledFuture sincronizacaoAtual;
 
     public void iniciarSincronizacao() {
@@ -179,11 +181,29 @@ public class SincronizadorService {
             try {
                 envio = Envio.FECHAMENTO;
                 if (!configuracaoItems.isEmpty()) {
-                    
-                    Date dataInicio = null;
-                    Date dataFim = null;
-                    Integer nrcaixa = null;
-                    
+
+                    List<String> datasReenvio = (List<String>) map.get("datasReenvio");
+
+                    String date1 = datasReenvio.get(0);
+                    String date2 = datasReenvio.get(1);
+
+                    Date dataInicial = dateFrontFormat.parse(date1);
+                    Date dataFinal = null;
+
+                    if (dataInicial.after(new Date())) {
+                        throw new Exception("Data inicial não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
+                    }
+                    if (date2 != null) {
+                        dataFinal = dateFrontFormat.parse(date2);
+
+                        if (dataFinal.after(new Date())) {
+                            throw new Exception("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
+                        }
+
+                    }
+
+                    Integer nrcaixa = (Integer) map.get("numCaixa");
+
                     Thread.sleep(15000);
                 }
 
@@ -193,7 +213,10 @@ public class SincronizadorService {
 
             } catch (Exception ex) {
                 envio = Envio.ERRO;
-                ex.printStackTrace();
+                StringWriter writer = new StringWriter();
+                PrintWriter pw = new PrintWriter(writer);
+                ex.printStackTrace(pw);
+                log = writer.toString();
                 LOGGER.error("Erro ao reenviar fechamento: ", ex);
             } finally {
                 executando = false;
@@ -205,13 +228,34 @@ public class SincronizadorService {
     public void desmarcarVendas(Map map) throws Exception {
 
         try {
-            //Falta pegar as datas do map
-            Date dataInicial = null;
+
+            List<String> datasReenvio = (List<String>) map.get("datasReenvio");
+
+            String date1 = datasReenvio.get(0);
+            String date2 = datasReenvio.get(1);
+
+            Date dataInicial = dateFrontFormat.parse(date1);
             Date dataFinal = null;
-            
+
+            if (dataInicial.after(new Date())) {
+                throw new Exception("Data inicial não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
+            }
+            if (date2 != null) {
+                dataFinal = dateFrontFormat.parse(date2);
+
+                if (dataFinal.after(new Date())) {
+                    throw new Exception("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
+                }
+
+            }
+
             notasaiService.desmarcarVendas(dataInicial, dataFinal);
         } catch (Exception ex) {
-            ex.printStackTrace();
+            envio = Envio.ERRO;
+            StringWriter writer = new StringWriter();
+            PrintWriter pw = new PrintWriter(writer);
+            ex.printStackTrace(pw);
+            log = writer.toString();
             LOGGER.error("Erro ao desmarcar vendas: ", ex);
             throw ex;
         }
