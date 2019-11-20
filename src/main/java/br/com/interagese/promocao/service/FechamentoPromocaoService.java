@@ -64,7 +64,8 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
                                 dataDaUltimaSincronizacao,
                                 dataDaSincronizacaoAtual,
                                 codfil,
-                                null
+                                null,
+                                false
                         );
 
                         if (!fechamentos.isEmpty()) {
@@ -109,7 +110,7 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
                                 create(fechamento);
                             }
-                            
+
                             sincronizacaoService.insertSincronizacaoFechamento(codfil, dataDaSincronizacaoAtual);
                         }
 
@@ -121,6 +122,78 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
             throw new Exception("Erro ao enviar fechamentos", e);
         }
 
+    }
+
+    @Transactional
+    public void reenviarFechamento(List<ConfiguracaoItem> configuracaoItems, Date dataInicio, Date dataFim, Integer nrcaixa) throws Exception {
+        try {
+            //Configuracao de teste
+            for (ConfiguracaoItem configuracao : configuracaoItems) {
+                for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
+
+                    int codfil = filialScanntech1.getCodigoFilial().intValue();
+                    int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
+
+                    List<FechamentoPromocao> fechamentos = getFechamentos(
+                            dataInicio,
+                            dataFim,
+                            codfil,
+                            nrcaixa,
+                            true
+                    );
+
+                    if (!fechamentos.isEmpty()) {
+
+                        for (FechamentoPromocao fechamento : fechamentos) {
+
+                            fechamento.setReenvio(true);
+                            fechamento.setCodigoScanntech(Integer.valueOf(codscanntech).longValue());
+
+                            try {
+                                ResponseEntity<String> response = restClient.enviarFechamento(
+                                        configuracao,
+                                        fechamento,
+                                        codscanntech,
+                                        fechamento.getNumeroCaixa().intValue()
+                                );
+
+                                int statusCode = response.getStatusCodeValue();
+                                String message = response.getBody();
+
+                                if (statusCode == 200
+                                        || statusCode == 208) {
+
+                                    fechamento.setEnvioScanntech(StatusEnvio.ENVIADO.getValor());
+
+                                } else if (statusCode == 408
+                                        || (statusCode >= 500 && statusCode <= 599)) {
+
+                                    fechamento.setObsScanntech(message);
+                                    fechamento.setEnvioScanntech(StatusEnvio.PENDENTE.getValor());
+
+                                } else {
+                                    fechamento.setEnvioScanntech(StatusEnvio.ERRO.getValor());
+                                }
+
+                                fechamento.setDataEnvio(new Date());
+
+                            } catch (HttpClientErrorException e) {
+
+                                throw e;
+
+                            }
+
+                            create(fechamento);
+                        }
+
+                        sincronizacaoService.insertSincronizacaoFechamento(codfil, new Date());
+                    }
+
+                }
+            }
+        } catch (Exception e) {
+            throw new Exception("Erro ao enviar fechamentos", e);
+        }
     }
 
     private boolean passou1DiaOuMais(Date dataDoUltimoFechamento, Date dataDaSincronizacaoAtual) {
@@ -135,31 +208,42 @@ public class FechamentoPromocaoService extends PadraoService<FechamentoPromocao>
 
     }
 
-    private List<FechamentoPromocao> getFechamentos(Date dataInicio, Date dataFim, Integer codfil, Integer nrcaixa) {
+    private List<FechamentoPromocao> getFechamentos(Date dataInicio, Date dataFim, Integer codfil, Integer nrcaixa, boolean reenvio) {
 
         StringBuilder hql = new StringBuilder("select "
                 + "    codfil as codfil, "
                 + "    nrcaixa as nrcaixa, "
                 + "    dtemissao as data_fechamento, "
-                + "    sum(case when n.situacao in ('N', 'E') then n.totgeral else 0 end) as valor_total_vendas, "
-                + "    sum(case when n.situacao in ('N', 'E') then 1 else 0 end) as quantidade_vendas, "
-                + "    sum(case when n.situacao in ('C', 'A') then n.totgeral else 0 end) as valor_total_cancelamentos, "
-                + "    sum(case when n.situacao in ('C', 'A') then 1 else 0 end) as quantidade_cancelamentos "
+                + "    sum(case when (n.situacao in ('N', 'A', 'E') OR (n.situacao = 'C' AND (n.nrcontr02 IS NOT NULL AND n.nrcontr02 <> '')) ) then n.totgeral else 0 end) as valor_total_vendas, "
+                + "    sum(case when (n.situacao in ('N', 'A', 'E') OR (n.situacao = 'C' AND (n.nrcontr02 IS NOT NULL AND n.nrcontr02 <> '')) ) then 1 else 0 end) as quantidade_vendas, "
+                + "    sum(case when (n.situacao = 'A' OR (n.situacao = 'C' AND (n.nrcontr02 IS NOT NULL AND n.nrcontr02 <> '')) ) then n.totgeral else 0 end) as valor_total_cancelamentos, "
+                + "    sum(case when (n.situacao = 'A' OR (n.situacao = 'C' AND (n.nrcontr02 IS NOT NULL AND n.nrcontr02 <> '')) ) then 1 else 0 end) as quantidade_cancelamentos "
                 + "        from "
                 + "    notasai n "
                 + "        where ");
 
-        if (dataFim == null && dataInicio != null) {
+        //Se for reenvio de uma data
+        if (reenvio && (dataFim == null && dataInicio != null)) {
             hql.append(" n.dtemissao = '").append(dbDateFormat.format(dataInicio)).append("' ");
-        } else {
+            
+        //Se não for reenvio de um periodo
+        } else if(!reenvio && (dataFim != null && dataInicio != null)){
             hql.append(" (n.dtemissao >= '").append(dbDateFormat.format(dataInicio))
                     .append("' AND n.dtemissao < '").append(dbDateFormat.format(dataFim)).append("') ");
+            
+        //Se for reenvio de um periodo    
+        }else if(!reenvio && (dataFim != null && dataInicio != null)){
+            hql.append(" (n.dtemissao BETWEEN '").append(dbDateFormat.format(dataInicio))
+                    .append("' AND '").append(dbDateFormat.format(dataFim)).append("') ");
+        
+        }else{
+            throw new RuntimeException("Datas não informadas corretamente.");
         }
 
         if (nrcaixa != null) {
             hql.append(" AND (n.nrcaixa = :nrcaixa) ");
         }
-        
+
         hql.append(" AND (n.envioscanntech = 'E') ");
 
         hql.append(" AND (n.codfil = :codfil ) ")

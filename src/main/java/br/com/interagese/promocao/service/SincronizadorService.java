@@ -6,6 +6,7 @@ import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.promocao.enuns.Envio;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -64,19 +65,19 @@ public class SincronizadorService {
 
                     envio = Envio.PROMOCAO;
                     if (executando) {
-                        tabpromocaoService.baixarPromocoes(configuracaoItems);
+                        //   tabpromocaoService.baixarPromocoes(configuracaoItems);
                     }
 
                     envio = Envio.VENDA;
                     if (executando) {
                         notasaiService.setExecutando(true);
-                        notasaiService.enviarVendas(configuracaoItems, configuracao.getPrimeiraSincronizacao());
-                        // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
+                        //     notasaiService.enviarVendas(configuracaoItems, configuracao.getPrimeiraSincronizacao());
+                        //sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
                     }
 
                     envio = Envio.FECHAMENTO;
                     if (executando) {
-                        fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
+                        //fechamentoPromocaoService.reenviarFechamento(configuracaoItems, new Date(), null);
 
                     }
 
@@ -108,25 +109,25 @@ public class SincronizadorService {
                     this.notasaiService.setExecutando(true);
                     this.notasaiService.enviarVendas(configuracaoItems, configuracao.getPrimeiraSincronizacao());
                 }
-                
+
                 envio = Envio.NADA;
-                
+
                 LOGGER.info("Sincronização de vendas finalizada");
-                
+
             } catch (Exception ex) {
                 envio = Envio.ERRO;
                 ex.printStackTrace();
                 LOGGER.error("Erro ao realizar sincronização: ", ex);
-            }finally{
+            } finally {
                 executando = false;
             }
 
         }
     }
-    
+
     public void sincronizarPromocao() {
         if (!executando) {
-            executando =true;
+            executando = true;
             Configuracao configuracao = configuracaoService.findById(1L);
             List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
 
@@ -135,19 +136,66 @@ public class SincronizadorService {
                 if (!configuracaoItems.isEmpty()) {
                     this.tabpromocaoService.baixarPromocoes(configuracaoItems);
                 }
-                
+
                 envio = Envio.NADA;
-                
+
                 LOGGER.info("Sincronização de promoção finalizada");
-                
+
             } catch (Exception ex) {
                 envio = Envio.ERRO;
                 ex.printStackTrace();
                 LOGGER.error("Erro ao realizar sincronização: ", ex);
-            }finally{
+            } finally {
                 executando = false;
             }
 
+        }
+    }
+
+    public void reenviarFechamento(Map map) {
+        if (!executando) {
+            executando = true;
+            Configuracao configuracao = configuracaoService.findById(1L);
+            List<ConfiguracaoItem> configuracaoItems = configuracao.getConfiguracaoItem();
+
+            try {
+                envio = Envio.FECHAMENTO;
+                if (!configuracaoItems.isEmpty()) {
+                    
+                    Date dataInicio = null;
+                    Date dataFim = null;
+                    Integer nrcaixa = null;
+                    
+                    Thread.sleep(15000);
+                }
+
+                envio = Envio.NADA;
+
+                LOGGER.info("Reenvio de fechamento finalizado");
+
+            } catch (Exception ex) {
+                envio = Envio.ERRO;
+                ex.printStackTrace();
+                LOGGER.error("Erro ao reenviar fechamento: ", ex);
+            } finally {
+                executando = false;
+            }
+
+        }
+    }
+
+    public void desmarcarVendas(Map map) throws Exception {
+
+        try {
+            //Falta pegar as datas do map
+            Date dataInicial = null;
+            Date dataFinal = null;
+            
+            notasaiService.desmarcarVendas(dataInicial, dataFinal);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            LOGGER.error("Erro ao desmarcar vendas: ", ex);
+            throw ex;
         }
     }
 

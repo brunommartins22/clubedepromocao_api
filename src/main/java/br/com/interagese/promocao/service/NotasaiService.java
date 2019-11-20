@@ -6,6 +6,8 @@ import br.com.interagese.postgres.models.ConfiguracaoItem;
 import br.com.interagese.postgres.models.FilialScanntech;
 import br.com.interagese.promocao.enuns.StatusEnvio;
 import br.com.interagese.promocao.util.ScanntechRestClient;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -33,19 +35,22 @@ public class NotasaiService {
 
     private final ScanntechRestClient restClient;
 
+    private SimpleDateFormat dbDateFormat;
+
     public boolean executando = false;
 
     public NotasaiService() {
         restClient = new ScanntechRestClient();
+        dbDateFormat = new SimpleDateFormat("yyyy-MM-dd");
     }
 
     @Transactional(value = "integradoTransaction")
     public void enviarVendas(List<ConfiguracaoItem> configItens, Date dataDaPrimeiraSincronizacao) throws Exception {
 
-        if(dataDaPrimeiraSincronizacao == null){
+        if (dataDaPrimeiraSincronizacao == null) {
             throw new Exception("Data da primeira sincronização não informada");
         }
-        
+
         try {
             for (ConfiguracaoItem configuracao : configItens) {
                 for (FilialScanntech filialScanntech1 : configuracao.getListaFilial()) {
@@ -53,120 +58,177 @@ public class NotasaiService {
                     int codfil = filialScanntech1.getCodigoFilial().intValue();
                     int codscanntech = filialScanntech1.getCodigoScanntech().intValue();
 
-                    int vendas = getQuantidadeDeVendasParaEnvio(
+                    int quantidadeDeVendas = getQuantidadeDeVendasParaEnvio(
                             dataDaPrimeiraSincronizacao,
                             codfil
                     );
 
-                    if (vendas > 0) {
+                    if (quantidadeDeVendas > 0) {
                         int lote = 100;
-                        int loops = vendas / lote;
-                        if ((vendas % lote) != 0) {
+                        int loops = quantidadeDeVendas / lote;
+                        if ((quantidadeDeVendas % lote) != 0) {
                             loops++;
                         }
 
                         for (int i = 0; (i < loops && executando); i++) {
-                            List<Notasai> vendasParaEnvio = getVendasParaEnvio(
+                            List<Notasai> vendas = getVendasParaEnvio(
                                     dataDaPrimeiraSincronizacao,
                                     codfil,
                                     i == 0 ? i : i * lote,
                                     lote
                             );
 
-                            for (int j = 0; (j < vendasParaEnvio.size() && executando); j++) {
+                            for (int j = 0; (j < vendas.size() && executando); j++) {
 
-                                Notasai venda = vendasParaEnvio.get(j);
+                                Notasai vendaParaEnvio = vendas.get(j);
+                                Notasai vendaDeCancelamento = null;
 
-                                Double descontoTotal = venda.getVldescnot();
-                                Double acrescimoTotal = venda.getAcrescimentoTotal();
+                                //Vai armazenar as vendas uqe serão enviadas nessa iteração
+                                List<Notasai> vendasParaEnvio = new ArrayList();
 
-                                //Adiciona o subsidio
-                                if (venda.getVlsubsidiototal() != null) {
-                                    descontoTotal += venda.getVlsubsidiototal();
+                                //A venda é um cancelmento normal (1 item)
+                                if (vendaParaEnvio.getSituacao().equals("C")
+                                        && (vendaParaEnvio.getNrcontr01() != null && !vendaParaEnvio.getNrcontr01().isEmpty())
+                                        && (vendaParaEnvio.getNrcontr02() == null || vendaParaEnvio.getNrcontr02().isEmpty())) {
+
+                                    //Pesquisa a venda cancelada e marca como cancelamento para a scanntech
+                                    Notasai vendaCancelada = loadVenda(vendaParaEnvio.getNrcontr01());
+                                    vendaCancelada.setCancelada(true);
+
+                                    //Não deve ser enviada para a scanntech
+                                    vendaParaEnvio.setDeveSerEnviada(false);
+
+                                    vendasParaEnvio.add(vendaCancelada);
+                                    vendasParaEnvio.add(vendaParaEnvio);
+
+                                    //A venda é uma alteração ou uma alteração que foi cancelada (2 itens)
+                                } else if (vendaParaEnvio.getSituacao().equals("E")
+                                        || (vendaParaEnvio.getSituacao().equals("C")
+                                        && (vendaParaEnvio.getNrcontr01() != null && !vendaParaEnvio.getNrcontr01().isEmpty())
+                                        && (vendaParaEnvio.getNrcontr02() != null && !vendaParaEnvio.getNrcontr02().isEmpty()))) {
+
+                                    //Pesquisa a venda alterada e marca como cancelamento para a scanntech
+                                    Notasai vendaAlterada = loadVenda(vendaParaEnvio.getNrcontr01());
+                                    vendaAlterada.setCancelada(true);
+
+                                    //Envia as duas para a scanntech
+                                    vendasParaEnvio.add(vendaAlterada);
+                                    vendasParaEnvio.add(vendaParaEnvio);
+
+                                    //A venda é uma alteração cancelada    
+                                } else {
+                                    vendasParaEnvio.add(vendaParaEnvio);
                                 }
 
-                                //E o desconto/acrescimo no item se não tiver promocao
-                                for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
-                                    //Detalhes da lógica de preenchimento estão no construtor
-                                    //da classe notasaiitens
-                                    if (notasaiitens.getDescontoPromo() == 0.0) {
-                                        descontoTotal += notasaiitens.getDescontoNoItem();
-                                        acrescimoTotal += notasaiitens.getAcrescimoNoItem();
-                                    }
+                                for (Notasai venda : vendasParaEnvio) {
 
-                                }
+                                    if (venda.deveSerEnviada()) {
+                                        Double descontoTotal = venda.getVldescnot();
+                                        Double acrescimoTotal = venda.getAcrescimentoTotal();
 
-                                venda.setDescontoTotal(descontoTotal);
-                                venda.setAcrescimentoTotal(acrescimoTotal);
+                                        //Adiciona o subsidio
+                                        if (venda.getVlsubsidiototal() != null) {
+                                            descontoTotal += venda.getVlsubsidiototal();
+                                        }
 
-                                try {
-                                    ResponseEntity<String> response = restClient.enviarVenda(
-                                            configuracao,
-                                            venda,
-                                            codscanntech,
-                                            venda.getNrcaixa()
-                                    );
+                                        //E o desconto/acrescimo no item se não tiver promocao
+                                        for (Notasaiitens notasaiitens : venda.getNotasaiitensList()) {
+                                            //Detalhes da lógica de preenchimento estão no construtor
+                                            //da classe notasaiitens
+                                            if (notasaiitens.getDescontoPromo() == 0.0) {
+                                                descontoTotal += notasaiitens.getDescontoNoItem();
+                                                acrescimoTotal += notasaiitens.getAcrescimoNoItem();
+                                            }
 
-                                    int statusCode = response.getStatusCodeValue();
-                                    String mensagem = "";
+                                        }
 
-                                    if (statusCode == 200
-                                            || statusCode == 208) {
+                                        venda.setDescontoTotal(descontoTotal);
+                                        venda.setAcrescimentoTotal(acrescimoTotal);
 
-                                        venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
-                                        self.update(venda);
-                                        logService.logVenda(
-                                                venda.getNumeroCupom(),
-                                                venda.getNrcontr(),
-                                                venda.getNrcaixa(),
-                                                venda.getCodfil(),
-                                                codscanntech,
-                                                venda.isCancelada()
-                                        );
+                                        try {
+                                            ResponseEntity<String> response = restClient.enviarVenda(
+                                                    configuracao,
+                                                    venda,
+                                                    codscanntech,
+                                                    venda.getNrcaixa()
+                                            );
 
-                                    } else if (statusCode == 408
-                                            || (statusCode >= 500 && statusCode <= 599)) {
+                                            //Troca a referencia
+                                            if (vendaDeCancelamento != null) {
+                                                venda = vendaDeCancelamento;
+                                            }
 
-                                        mensagem = response.getBody();
+                                            int statusCode = response.getStatusCodeValue();
+                                            String mensagem = "";
 
-                                        venda.setObsscanntech(mensagem);
-                                        venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
-                                        self.update(venda);
-                                        logService.logVendaComErro(
-                                                venda.getNumeroCupom(),
-                                                venda.getNrcontr(),
-                                                venda.getObsscanntech(),
-                                                venda.getNrcaixa(),
-                                                venda.getCodfil(),
-                                                codscanntech,
-                                                venda.isCancelada()
-                                        );
+                                            if (statusCode == 200
+                                                    || statusCode == 208) {
+
+                                                venda.setEnvioscanntech(StatusEnvio.ENVIADO.getValor());
+                                                self.update(venda);
+                                                logService.logVenda(
+                                                        venda.getNumeroCupom(),
+                                                        venda.getNrcontr(),
+                                                        venda.getNrcaixa(),
+                                                        venda.getCodfil(),
+                                                        codscanntech,
+                                                        venda.isCancelada()
+                                                );
+
+                                            } else if (statusCode == 408
+                                                    || (statusCode >= 500 && statusCode <= 599)) {
+
+                                                mensagem = response.getBody();
+
+                                                venda.setObsscanntech(mensagem);
+                                                venda.setEnvioscanntech(StatusEnvio.PENDENTE.getValor());
+                                                self.update(venda);
+                                                logService.logVendaComErro(
+                                                        venda.getNumeroCupom(),
+                                                        venda.getNrcontr(),
+                                                        venda.getObsscanntech(),
+                                                        venda.getNrcaixa(),
+                                                        venda.getCodfil(),
+                                                        codscanntech,
+                                                        venda.isCancelada()
+                                                );
+
+                                            } else {
+                                                mensagem = response.getBody();
+                                                venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
+                                                venda.setObsscanntech(mensagem);
+                                                self.update(venda);
+                                                logService.logVendaComErro(
+                                                        venda.getNumeroCupom(),
+                                                        venda.getNrcontr(),
+                                                        venda.getObsscanntech(),
+                                                        venda.getNrcaixa(),
+                                                        venda.getCodfil(),
+                                                        codscanntech,
+                                                        venda.isCancelada()
+                                                );
+                                            }
+
+                                        } catch (Exception e) {
+                                            throw e;
+                                        }
 
                                     } else {
-                                        mensagem = response.getBody();
-                                        venda.setEnvioscanntech(StatusEnvio.ERRO.getValor());
-                                        venda.setObsscanntech(mensagem);
-                                        self.update(venda);
-                                        logService.logVendaComErro(
-                                                venda.getNumeroCupom(),
-                                                venda.getNrcontr(),
-                                                venda.getObsscanntech(),
-                                                venda.getNrcaixa(),
-                                                venda.getCodfil(),
-                                                codscanntech,
-                                                venda.isCancelada()
-                                        );
+
+                                        //Se teve uma venda de origem, recebe o mesmo status da venda
+                                        if (vendasParaEnvio.size() == 2) {
+                                            venda.setEnvioscanntech(vendasParaEnvio.get(0).getEnvioscanntech());
+                                            self.update(venda);
+                                        }
+
                                     }
 
-                                } catch (Exception e) {
-                                    throw e;
                                 }
 
                             }
 
+                            sincronizacaoService.insertSincronizacaoVenda(codfil, new Date());
                         }
-
-                        sincronizacaoService.insertSincronizacaoVenda(codfil, dataDaPrimeiraSincronizacao);
 
                     }
 
@@ -186,13 +248,12 @@ public class NotasaiService {
                 + "WHERE "
                 + "(n.codfil = :codfil) "
                 + "AND (((n.dthrlanc > :fim) "
-                + "AND (n.envioscanntech IS NULL) "
-                + "AND (n.situacao IN ('N', 'E'))) "
+                + "AND (n.envioscanntech IS NULL)) "
                 + "OR (n.envioscanntech = 'P'))";
 
         TypedQuery<Number> query = emFirebird.createQuery(hql, Number.class)
                 .setParameter("codfil", codfil)
-               // .setParameter("inicio", dataInicio)
+                // .setParameter("inicio", dataInicio)
                 .setParameter("fim", dataPrimeiraSincronizacao);
 
         return query.getSingleResult().intValue();
@@ -207,8 +268,7 @@ public class NotasaiService {
                 + "WHERE "
                 + "(n.codfil = :codfil) "
                 + "AND (((n.envioscanntech IS NULL) "
-                + "AND (n.dthrlanc > :fim) "
-                + "AND (n.situacao IN ('N', 'E'))) "
+                + "AND (n.dthrlanc > :fim)) "
                 + "OR (n.envioscanntech = 'P')) "
                 + "ORDER BY n.dthrlanc ";
 
@@ -224,6 +284,29 @@ public class NotasaiService {
         setNotasaiitensList(notasaiList);
 
         return notasaiList;
+
+    }
+
+    private Notasai loadVenda(String nrcontr) throws Exception {
+
+        String hql = "SELECT "
+                + " n "
+                + "FROM Notasai n "
+                + "WHERE "
+                + "nrcontr = :nrcontr ";
+
+        TypedQuery<Notasai> query = emFirebird.createQuery(hql, Notasai.class);
+        query.setParameter("nrcontr", nrcontr);
+
+        List<Notasai> notasaiList = query.getResultList();
+
+        if (notasaiList.isEmpty()) {
+            throw new RuntimeException("Não foi encontrada a venda informada");
+        }
+
+        setNotasaiitensList(notasaiList);
+
+        return notasaiList.get(0);
 
     }
 
@@ -298,6 +381,25 @@ public class NotasaiService {
     @Transactional(value = "integradoTransaction", propagation = Propagation.REQUIRES_NEW)
     public void update(Notasai notasai) {
         emFirebird.merge(notasai);
+    }
+
+    public void desmarcarVendas(Date dataInicial, Date dataFinal) {
+
+        String sql = "UPDATE notasai SET envioscanntech = null ";
+
+        if (dataInicial != null && dataFinal == null) {
+            sql += " WHERE dtemissao = '" + dbDateFormat.format(dataInicial) + "' ";
+        } else if (dataInicial == null && dataFinal != null) {
+            sql += " WHERE dtemissao = '" + dbDateFormat.format(dataFinal) + "' ";
+        } else if(dataInicial != null && dataFinal != null) {
+            sql += " WHERE dtemissao BETWEEN  '" + dbDateFormat.format(dataFinal) + "' AND '" + dbDateFormat.format(dataFinal) + "' ";
+        }else{
+            throw new RuntimeException("Não foi informado nenhuma data.");
+        }
+
+        emFirebird.createQuery(sql)
+                .executeUpdate();
+
     }
 
 }
