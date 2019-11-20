@@ -39,6 +39,7 @@ public class SincronizadorService {
     private boolean executando = false;
     private Envio envio = Envio.NADA;
     private String log = "";
+    private SimpleDateFormat dateFrontFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     private ScheduledFuture sincronizacaoAtual;
 
     public void iniciarSincronizacao() {
@@ -189,7 +190,10 @@ public class SincronizadorService {
 
             } catch (Exception ex) {
                 envio = Envio.ERRO;
-                ex.printStackTrace();
+                StringWriter writer = new StringWriter();
+                PrintWriter pw = new PrintWriter(writer);
+                ex.printStackTrace(pw);
+                log = writer.toString();
                 LOGGER.error("Erro ao reenviar fechamento: ", ex);
             } finally {
                 executando = false;
@@ -203,7 +207,11 @@ public class SincronizadorService {
         try {
             notasaiService.desmarcarVendas(dataInicio, dataFim);
         } catch (Exception ex) {
-            ex.printStackTrace();
+            envio = Envio.ERRO;
+            StringWriter writer = new StringWriter();
+            PrintWriter pw = new PrintWriter(writer);
+            ex.printStackTrace(pw);
+            log = writer.toString();
             LOGGER.error("Erro ao desmarcar vendas: ", ex);
             throw ex;
         }
