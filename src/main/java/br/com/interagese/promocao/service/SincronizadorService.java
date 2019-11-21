@@ -72,20 +72,18 @@ public class SincronizadorService {
 
                     envio = Envio.PROMOCAO;
                     if (executando) {
-                        // tabpromocaoService.baixarPromocoes(configuracaoItems);
+                       tabpromocaoService.baixarPromocoes(configuracaoItems);
                     }
 
                     envio = Envio.VENDA;
                     if (executando) {
-                        new Thread().sleep(15000);
                         notasaiService.setExecutando(true);
-                        //notasaiService.enviarVendas(configuracaoItems, dataDaSincronizacaoAtual);
-                        // sincronizacaoService.insertSincronizacaoVenda(dataDaSincronizacaoAtual);
+                        notasaiService.enviarVendas(configuracaoItems, configuracao.getPrimeiraSincronizacao());
                     }
 
                     envio = Envio.FECHAMENTO;
                     if (executando) {
-                        // fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
+                        fechamentoPromocaoService.enviarFechamento(configuracaoItems, dataDaSincronizacaoAtual);
 
                     }
 
@@ -173,7 +171,7 @@ public class SincronizadorService {
         }
     }
 
-    public void reenviarFechamento(Map map) {
+    public void reenviarFechamento(Date dataInicio, Date dataFim, Integer nrcaixa) {
         if (!executando) {
             executando = true;
             Configuracao configuracao = configuracaoService.findById(1L);
@@ -183,29 +181,8 @@ public class SincronizadorService {
                 envio = Envio.FECHAMENTO;
                 if (!configuracaoItems.isEmpty()) {
 
-                    List<String> datasReenvio = (List<String>) map.get("datasReenvio");
+                    fechamentoPromocaoService.reenviarFechamento(configuracaoItems, dataInicio, dataFim, nrcaixa);
 
-                    String date1 = datasReenvio.get(0);
-                    String date2 = datasReenvio.get(1);
-
-                    Date dataInicial = dateFrontFormat.parse(date1);
-                    Date dataFinal = null;
-
-                    if (dataInicial.after(new Date())) {
-                        throw new Exception("Data inicial não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
-                    }
-                    if (date2 != null) {
-                        dataFinal = dateFrontFormat.parse(date2);
-
-                        if (dataFinal.after(new Date())) {
-                            throw new Exception("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
-                        }
-
-                    }
-
-                    Integer nrcaixa = !StringUtils.isEmpty((String) map.get("numCaixa")) ? Integer.parseInt((String) map.get("numCaixa")) : null;
-
-                    Thread.sleep(15000);
                 }
 
                 envio = Envio.NADA;
@@ -226,31 +203,10 @@ public class SincronizadorService {
         }
     }
 
-    public void desmarcarVendas(Map map) throws Exception {
+    public void desmarcarVendas(Date dataInicio, Date dataFim) throws Exception {
 
         try {
-
-            List<String> datasReenvio = (List<String>) map.get("datasReenvio");
-
-            String date1 = datasReenvio.get(0);
-            String date2 = datasReenvio.get(1);
-
-            Date dataInicial = dateFrontFormat.parse(date1);
-            Date dataFinal = null;
-
-            if (dataInicial.after(new Date())) {
-                throw new Exception("Data inicial não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
-            }
-            if (date2 != null) {
-                dataFinal = dateFrontFormat.parse(date2);
-
-                if (dataFinal.after(new Date())) {
-                    throw new Exception("Data final não pode ser superior a data atual : " + new SimpleDateFormat("dd/MM/yyyy").format(new Date()));
-                }
-
-            }
-
-            notasaiService.desmarcarVendas(dataInicial, dataFinal);
+            notasaiService.desmarcarVendas(dataInicio, dataFim);
         } catch (Exception ex) {
             envio = Envio.ERRO;
             StringWriter writer = new StringWriter();

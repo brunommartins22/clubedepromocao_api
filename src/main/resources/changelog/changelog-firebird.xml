@@ -110,7 +110,7 @@
         </addColumn>
     </changeSet>
     
-    <changeSet id="Criar trigger na tabela NOTASAI" author="Promoção - José" runOnChange="true">
+<!--    <changeSet id="Criar trigger na tabela NOTASAI" author="Promoção - José" runOnChange="true">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
                 SELECT
@@ -127,6 +127,20 @@
             IF(NEW.SITUACAO IN ('A', 'C') AND OLD.SITUACAO = 'N' AND OLD.ENVIOSCANNTECH = 'E')
             THEN NEW.ENVIOSCANNTECH = 'P';
             end
+        </sql> 
+    </changeSet>-->
+    
+    <changeSet id="Remover trigger na tabela NOTASAI" author="Promoção - José" runOnChange="true">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">
+                SELECT
+                count(RDB$TRIGGER_NAME) FROM RDB$TRIGGERS
+                WHERE 
+                RDB$TRIGGER_NAME = 'TR_SCANNTECH'
+            </sqlCheck>
+        </preConditions>
+        <sql splitStatements="false">
+            DROP TRIGGER TR_SCANNTECH;
         </sql> 
     </changeSet>
     
