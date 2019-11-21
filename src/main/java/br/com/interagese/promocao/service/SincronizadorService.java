@@ -19,6 +19,7 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 public class SincronizadorService {
@@ -202,7 +203,7 @@ public class SincronizadorService {
 
                     }
 
-                    Integer nrcaixa = (Integer) map.get("numCaixa");
+                    Integer nrcaixa = !StringUtils.isEmpty((String) map.get("numCaixa")) ? Integer.parseInt((String) map.get("numCaixa")) : null;
 
                     Thread.sleep(15000);
                 }
