@@ -81,7 +81,6 @@ public class NotasaiService {
                             for (int j = 0; (j < vendas.size() && executando); j++) {
 
                                 Notasai vendaParaEnvio = vendas.get(j);
-                                Notasai vendaDeCancelamento = null;
 
                                 //Vai armazenar as vendas uqe serão enviadas nessa iteração
                                 List<Notasai> vendasParaEnvio = new ArrayList();
@@ -152,11 +151,6 @@ public class NotasaiService {
                                                     codscanntech,
                                                     venda.getNrcaixa()
                                             );
-
-                                            //Troca a referencia
-                                            if (vendaDeCancelamento != null) {
-                                                venda = vendaDeCancelamento;
-                                            }
 
                                             int statusCode = response.getStatusCodeValue();
                                             String mensagem = "";
