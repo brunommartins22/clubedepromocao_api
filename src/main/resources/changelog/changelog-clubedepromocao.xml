@@ -2,6 +2,44 @@
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
     
+    <changeSet id="Inserir sistema promocao" author="Promoção - Bruno" runOnChange="true">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">select count(*) from seguranca.sistema where id = 5</sqlCheck>
+        </preConditions>
+        <sql splitStatements="true" dbms="postgresql">
+            INSERT INTO
+            seguranca.sistema (id, dominio_grupo_sistema,nome_sistema)
+            VALUES (5, 'CLUBEDEPROMOCAO', 'ClubedePromoção');
+
+        </sql>
+    </changeSet>
+    
+      <changeSet id="Permissoes Promoções" author="Promoção - Bruno" runOnChange="true">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">select count(*) from seguranca.permissao_sistema where sistema_id = 5</sqlCheck>
+        </preConditions>
+        <sql splitStatements="true" dbms="postgresql">
+          
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.03', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.03.01', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.03.02', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.03.03', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.03.04', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.04', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.04.01', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.04.02', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '1.04.03', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '2', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '2.06', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '2.07', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '2.08', 5);
+            INSERT INTO seguranca.permissao_sistema VALUES (nextval('seguranca.seq_permissao_sistema'), '2.09', 5);
+            
+        </sql>
+    </changeSet>
+    
+    
     <changeSet id="Criar trigger na tabela NOTASAI" author="Promoção - José">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
