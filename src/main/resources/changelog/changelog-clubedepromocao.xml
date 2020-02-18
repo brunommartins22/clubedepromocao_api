@@ -10,7 +10,7 @@
             INSERT INTO
             seguranca.sistema (id, dominio_grupo_sistema,nome_sistema)
             VALUES (5, 'CLUBEDEPROMOCAO', 'ClubedePromoção');
-
+            
         </sql>
     </changeSet>
     
